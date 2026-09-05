@@ -1,12 +1,17 @@
+import { apiFetch, withBase } from '../services/apiClient';
 import React, { useState, useEffect } from 'react';
 import { UserRole } from '../types';
 import { FileText, Download, Clock, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { IcrScanner } from './IcrScanner';
 
 interface BulkDiagnosticWorkflowProps {
   user: any;
   token: string;
   userRole: UserRole;
-  onBack: () => void;
+  // Optional so this can be embedded inline (e.g. issue #175's Diagnostic
+  // Test panel) without the standalone "Back to Dashboard" header — pass it
+  // only when this is used as its own full-screen step.
+  onBack?: () => void;
 }
 
 interface JobStatus {
@@ -23,16 +28,58 @@ interface JobStatus {
 export const BulkDiagnosticWorkflow: React.FC<BulkDiagnosticWorkflowProps> = ({ user, token, userRole, onBack }) => {
   const [classLevel, setClassLevel] = useState<number>(2); // Default to Class 2
   const [totalStudents, setTotalStudents] = useState<number | ''>(30); // Default to 30 students
+  const [enrolledStudents, setEnrolledStudents] = useState<Array<{ name: string; studentId: string }>>([]);
   const [job, setJob] = useState<JobStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Scan & Upload is independent of `job` on purpose — in a pilot, an
+  // answer sheet can come back hours or a day after the paper was printed,
+  // long after `job` (in-memory, reset on refresh) is gone. Keep this
+  // reachable regardless of any current generation job's state.
+  const [showIcrScanner, setShowIcrScanner] = useState(false);
+
+  // Fetch enrolled students when classLevel changes
+  useEffect(() => {
+    const fetchStudentsForClass = async () => {
+      try {
+        const res = await apiFetch('/api/students', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.ok) {
+          const stdData = await res.json();
+          if (Array.isArray(stdData)) {
+                      const targetClassName = `Class ${classLevel}`;
+                      const filtered = stdData.filter(s => {
+                        const cg = (s.classGroup || '').toLowerCase().trim();
+                        const cn = String(s.classNum ?? '').trim();
+                        // Match by classGroup ("Class 2") OR by classNum (2) — seed data in
+                        // constants.ts uses classNum while most consumers expect classGroup.
+                        return cg === targetClassName.toLowerCase() ||
+                               cg === String(classLevel) ||
+                               cg.includes(`class ${classLevel}`) ||
+                               cg.includes(`class_${classLevel}`) ||
+                               cn === String(classLevel);
+                      });
+            const mapped = filtered.map(s => ({ name: s.name, studentId: s.id }));
+            setEnrolledStudents(mapped);
+            if (mapped.length > 0) {
+              setTotalStudents(mapped.length);
+            } else {
+              setTotalStudents('');
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load enrolled students for class:', err);
+      }
+    };
+    fetchStudentsForClass();
+  }, [token, classLevel]);
 
   // Polling bulk job progress
   useEffect(() => {
     if (!job || job.status !== 'running') return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/diagnostic/bulk/${job.jobId}/progress`);
+        const res = await apiFetch(`/api/diagnostic/bulk/${job.jobId}/progress`);
         if (res.ok) {
           const data = await res.json();
           setJob(data);
@@ -66,16 +113,25 @@ export const BulkDiagnosticWorkflow: React.FC<BulkDiagnosticWorkflowProps> = ({ 
     setJob(null);
 
     try {
-      const res = await fetch('/api/diagnostic/bulk', {
+      if (enrolledStudents.length === 0) {
+        setError(`No enrolled students found in MongoDB for Class ${classLevel}. Please enroll students in Class ${classLevel} first.`);
+        setLoading(false);
+        return;
+      }
+
+      const payload: any = {
+        classNumber: classLevel,
+        count: enrolledStudents.length,
+        students: enrolledStudents
+      };
+
+      const res = await apiFetch('/api/diagnostic/bulk', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          classNumber: classLevel,
-          count
-        })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (res.ok) {
@@ -92,37 +148,50 @@ export const BulkDiagnosticWorkflow: React.FC<BulkDiagnosticWorkflowProps> = ({ 
 
   const progressPercent = job ? Math.round((job.completed / job.totalStudents) * 100) : 0;
 
+  // Sub-view: ICR Scanner — full-screen, with a Back to Bulk Generator button.
+  if (showIcrScanner) {
+    return (
+      <IcrScanner
+        token={token}
+        user={user}
+        onBack={() => setShowIcrScanner(false)}
+      />
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in" id="bulk-diagnostic-workflow">
-      <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
+      <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-4">
         <div>
-          <h1 className="text-2xl font-display font-semibold text-zinc-900 tracking-tight">
+          <h1 className="text-2xl font-display font-semibold text-zinc-900 dark:text-white tracking-tight">
             Bulk Diagnostic Generator
           </h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
             Specify the class level and the number of students to generate and print baseline diagnostic papers
           </p>
         </div>
-        <button
-          onClick={onBack}
-          className="text-zinc-400 hover:text-zinc-600 font-medium text-sm border border-zinc-200 hover:bg-zinc-50 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-        >
-          Back to Dashboard
-        </button>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 font-medium text-sm border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+          >
+            Back to Dashboard
+          </button>
+        )}
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-sm text-red-700">
+        <div className="p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3 text-sm text-red-700 dark:text-red-300">
           <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-600" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Batch Control Form */}
-      <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6 shadow-sm">
         <form onSubmit={handleGenerateBulk} className="space-y-6">
           <div>
-            <label className="text-sm font-semibold text-zinc-700 block mb-2">
+            <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 block mb-2">
               Baseline Class Level
             </label>
             <div className="grid grid-cols-4 gap-3">
@@ -134,7 +203,7 @@ export const BulkDiagnosticWorkflow: React.FC<BulkDiagnosticWorkflowProps> = ({ 
                   className={`py-3 text-center border font-display font-bold text-sm rounded-xl transition-all cursor-pointer ${
                     classLevel === lvl
                       ? 'bg-zinc-950 text-white border-zinc-950 shadow-sm'
-                      : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
+                      : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700'
                   }`}
                 >
                   Class {lvl}
@@ -144,7 +213,7 @@ export const BulkDiagnosticWorkflow: React.FC<BulkDiagnosticWorkflowProps> = ({ 
           </div>
 
           <div>
-            <label className="text-sm font-semibold text-zinc-700 block mb-2" htmlFor="total-students">
+            <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 block mb-2" htmlFor="total-students">
               Number of Students
             </label>
             <input
@@ -155,11 +224,18 @@ export const BulkDiagnosticWorkflow: React.FC<BulkDiagnosticWorkflowProps> = ({ 
               value={totalStudents}
               onChange={(e) => setTotalStudents(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
               placeholder="e.g. 30"
-              className="w-full text-base rounded-xl border-zinc-300 focus:ring-zinc-950 focus:border-zinc-950 text-zinc-905 px-4 py-3 bg-zinc-50 border font-mono"
+              className="w-full text-base rounded-xl border-zinc-300 dark:border-zinc-600 focus:ring-zinc-950 focus:border-zinc-950 text-zinc-905 px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border font-mono"
             />
-            <p className="text-[10px] text-zinc-400 mt-1 font-mono">
-              Accepts 1 - 1000 sheets per diagnostic batch.
-            </p>
+            {enrolledStudents.length > 0 ? (
+              <p className="text-xs text-green-700 dark:text-green-400 mt-1.5 font-medium flex items-center gap-1.5">
+                <span>👥 Enrolled Students in Class {classLevel}:</span>
+                <span className="font-bold">{enrolledStudents.map(s => s.name).join(', ')} ({enrolledStudents.length} Real Students)</span>
+              </p>
+            ) : (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5 font-medium flex items-center gap-1.5">
+                <span>⚠️ No enrolled students found in MongoDB for Class {classLevel}. Please add students to Class {classLevel} first.</span>
+              </p>
+            )}
           </div>
 
           <button
@@ -184,16 +260,16 @@ export const BulkDiagnosticWorkflow: React.FC<BulkDiagnosticWorkflowProps> = ({ 
 
       {/* Bulk Job Progress / Output Status */}
       {job && (
-        <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="font-display font-medium text-zinc-900">
+            <h3 className="font-display font-medium text-zinc-900 dark:text-white">
               Diagnostic Paper Batch Progress (Class {job.classNumber})
             </h3>
-            <span className="text-xs font-mono text-zinc-400">Job ID: {job.jobId}</span>
+            <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">Job ID: {job.jobId}</span>
           </div>
 
           <div className="space-y-2">
-            <div className="flex justify-between text-xs font-mono text-zinc-500">
+            <div className="flex justify-between text-xs font-mono text-zinc-500 dark:text-zinc-400">
               <span>Progress: {job.completed} / {job.totalStudents} sheets rendered</span>
               <span
                 className={`font-semibold ${
@@ -203,7 +279,7 @@ export const BulkDiagnosticWorkflow: React.FC<BulkDiagnosticWorkflowProps> = ({ 
                 {job.status === 'running' ? 'Generating...' : job.status === 'completed' ? 'Ready to Print' : 'Failed'}
               </span>
             </div>
-            <div className="w-full bg-zinc-100 rounded-full h-3 overflow-hidden">
+            <div className="w-full bg-zinc-100 dark:bg-zinc-700 rounded-full h-3 overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   job.status === 'completed' ? 'bg-green-500' : job.status === 'failed' ? 'bg-red-500' : 'bg-blue-500'
@@ -211,47 +287,60 @@ export const BulkDiagnosticWorkflow: React.FC<BulkDiagnosticWorkflowProps> = ({ 
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
-            <div className="text-center text-xs font-mono text-zinc-400">{progressPercent}% completed</div>
+            <div className="text-center text-xs font-mono text-zinc-400 dark:text-zinc-500">{progressPercent}% completed</div>
           </div>
 
           {job.status === 'running' && (
-            <div className="flex items-center gap-2 text-xs text-blue-800 bg-blue-50 border border-blue-100 rounded-lg p-3">
+            <div className="flex items-center gap-2 text-xs text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950 border border-blue-100 dark:border-blue-800 rounded-lg p-3">
               <Clock className="w-4 h-4 animate-spin text-blue-500" />
               <span>Generating and compiling baseline mathematics papers. Please keep this browser window open...</span>
             </div>
           )}
 
-          {job.status === 'completed' && job.downloadUrl && (
+          {job.status === 'completed' && (
             <div className="flex flex-wrap items-center gap-3">
               <a
-                href={job.downloadUrl}
-                className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium text-sm py-2.5 px-5 rounded-xl transition-all shadow-sm cursor-pointer"
+                href={job.pdfUrl ? withBase(job.pdfUrl) : job.downloadUrl ? withBase(job.downloadUrl) : '#'}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold text-sm py-3 px-6 rounded-xl transition-all shadow-sm cursor-pointer"
               >
-                <Download className="w-4 h-4" />
-                Download Merged PDF ({job.totalStudents} papers)
+                <FileText className="w-5 h-5" />
+                🖨️ Print / Open PDF ({job.totalStudents} papers)
               </a>
-              {job.pdfUrl && (
-                <a
-                  href={job.pdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white font-medium text-sm py-2.5 px-5 rounded-xl transition-all shadow-sm cursor-pointer"
-                >
-                  <FileText className="w-4 h-4" />
-                  Print / Open PDF
-                </a>
-              )}
             </div>
           )}
 
           {job.status === 'failed' && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+            <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
               <XCircle className="w-4 h-4 text-red-600" />
               <span>{job.error || 'Generation failed. Please try again.'}</span>
             </div>
           )}
         </div>
       )}
+
+      {/*
+        Scan & Upload — deliberately NOT gated on `job` or its status.
+        In pilot testing an answer sheet can come back hours or a full day
+        after the paper was generated, well after this component's local
+        `job` state (or the whole browser session) is gone. This has to
+        stay reachable on its own, every time this panel is open.
+      */}
+      <div className="bg-white dark:bg-slate-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6 shadow-sm">
+        <h3 className="font-display font-medium text-zinc-900 dark:text-white mb-1">
+          Upload Scanned Sheet
+        </h3>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+          Once a student's answer sheet is filled in — whether that's today or a few days from now — upload it here to evaluate it.
+        </p>
+        <button
+          onClick={() => setShowIcrScanner(true)}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-semibold text-xs py-4 rounded-xl transition-colors shadow cursor-pointer"
+        >
+          📤 Upload Scanned Sheet
+        </button>
+      </div>
     </div>
   );
 };

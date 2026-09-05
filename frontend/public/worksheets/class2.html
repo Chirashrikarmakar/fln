@@ -93,17 +93,23 @@
     margin-top:10px;flex-wrap:wrap;gap:6px;
   }
   .ws-fields span{border-bottom:1px solid #000;padding:0 4px 2px 4px;min-width:120px;display:inline-block;}
-  .section{margin:16px 0 22px 0;}
+  /* Keep the child details and QR visible; questions begin below the header. */
+  .ws-fields{display:none;}
+  .ws-header{min-height:18mm;box-sizing:border-box;}
+  .section{margin:4px 0 8px 0;}
+  .section, table, tr{break-inside:avoid;page-break-inside:avoid;}
   .section h2{
-    font-size:14.5px;background:#000;color:#fff;
-    padding:4px 8px;margin:0 0 8px 0;display:inline-block;
-  }
+      font-size:14.5px;background:#000;color:#fff;
+      padding:4px 8px;margin:0 0 8px 0;display:none;
+    }
   .section .instr{font-size:12.5px;color:#000;font-style:italic;margin:0 0 6px 0;}
+  .two-column-questions{display:grid;grid-template-columns:1fr 1fr;column-gap:18px;row-gap:4px;}
+  .two-column-questions .seqline{margin:3px 0;}
   .seqline{font-size:15px;margin:6px 0;letter-spacing:1px;font-family:Arial,sans-serif;}
   .seqline .qn{font-weight:bold;margin-right:6px;}
   table.wstable{width:100%;border-collapse:collapse;margin:6px 0;}
   table.wstable td,table.wstable th{
-    border:1.4px solid #000;padding:6px 8px;
+    border:1.4px solid #000;padding:3px 5px;
     vertical-align:middle;font-size:13px;
   }
   table.wstable td.rownum{width:26px;text-align:center;font-weight:bold;}
@@ -120,7 +126,7 @@
   .blankline{display:inline-block;border-bottom:1.4px solid #000;width:50px;margin:0 4px;}
   .matchwrap{display:flex;justify-content:space-between;gap:30px;}
   .matchcol{flex:1;}
-  .matchitem{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0;font-size:13px;width:100%;}
+  .matchitem{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0;font-size:13px;width:100%;}
   .matchitem .micontent{display:flex;align-items:center;gap:8px;}
   .matchitem .dot{width:10px;height:10px;border:1.4px solid #000;border-radius:50%;background:#fff;flex-shrink:0;}
   .objline{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;}
@@ -129,7 +135,7 @@
   .sizebox{display:flex;flex-direction:column;align-items:center;gap:4px;}
   .numbox{width:30px;height:26px;border:2px solid #000;}
   .compare-row{display:flex;align-items:flex-end;gap:24px;justify-content:center;}
-  .compare-cell{border:1.4px solid #000;padding:8px 14px;display:flex;align-items:flex-end;justify-content:center;min-width:90px;min-height:90px;}
+  .compare-cell{border:1.4px solid #000;padding:4px 8px;display:flex;align-items:flex-end;justify-content:center;min-width:72px;min-height:72px;}
   .ws-footer{margin-top:18px;border-top:1.4px solid #000;padding-top:6px;font-size:11px;text-align:center;color:#333;}
 
   /* ANSWER KEY STYLES */
@@ -178,11 +184,14 @@
 <script src="./html2canvas.min.js"></script>
 <script src="./jspdf.umd.min.js"></script>
 <script src="./jszip.min.js"></script>
+<script src="./qrcode.min.js"></script>
 </head>
 <body>
 
 <div class="toolbar no-print">
   <h1>Class 2 — Math Worksheet Generator (FLN) · v3</h1>
+  <label>Student name: <input id="studentName" type="text" placeholder="Student name"></label>
+  <label>Student ID: <input id="studentId" type="text" placeholder="Roll/Student ID"></label>
   <label>Number of sets:
     <input type="number" id="setCount" min="1" max="5000" value="5">
   </label>
@@ -345,8 +354,12 @@ function section1(){
   ranges.forEach((r,idx)=>{
     const nums=[]; for(let n=r[0];n<=r[1];n++) nums.push(n);
     const blankPositions=sample([...Array(nums.length).keys()],3);
-    const display=nums.map((n,i)=>blankPositions.includes(i)?'<span class="blankline" data-omr="q1-r'+(idx+1)+'-b'+(i+1)+'" style="width:34px;"></span>':n).join('&nbsp;&nbsp;');
-    const blanks=blankPositions.sort((a,b)=>a-b).map(p=>({position:p+1,value:nums[p]}));
+    // Ordinal of each blank within its row, ascending — the same order the
+    // `blanks` array below is built in, and therefore the same order the
+    // backend appends _b1.._bN to this row's question id.
+    const blankOrder=[...blankPositions].sort((a,b)=>a-b);
+    const display=nums.map((n,i)=>blankPositions.includes(i)?'<span class="blankline" data-omr="q1-r'+(idx+1)+'-b'+(i+1)+'" data-ans-item="'+idx+'" data-ans-blank="'+blankOrder.indexOf(i)+'" style="width:34px;"></span>':n).join('&nbsp;&nbsp;');
+    const blanks=blankOrder.map(p=>({position:p+1,value:nums[p]}));
     answers.push({question:idx+1,range:r[0]+'-'+r[1],blanks});
     out+='<div class="seqline" data-omr="q1-row-'+(idx+1)+'"><span class="qn">'+(idx+1)+'.</span>'+display+'</div>';
   });
@@ -370,43 +383,43 @@ function section2(){
 }
 
 function section3(){
-  let out='';
+  let out='<div class="two-column-questions">';
   const answers=[];
   const A=randInt(2,49);
-  out+='<div class="seqline"><span class="qn">1.</span> <span class="blankline" data-omr="q3-ans-1" style="width:40px;"></span> , '+A+' &nbsp;(before)</div>';
+  out+='<div class="seqline"><span class="qn">1.</span> <span class="blankline" data-omr="q3-ans-1" data-ans-item="0" style="width:40px;"></span> , '+A+' &nbsp;(before)</div>';
   answers.push({question:1,type:'before',given:A,answer:A-1});
   const B=randInt(1,49);
-  out+='<div class="seqline"><span class="qn">2.</span> '+B+' , <span class="blankline" data-omr="q3-ans-2" style="width:40px;"></span> &nbsp;(after)</div>';
+  out+='<div class="seqline"><span class="qn">2.</span> '+B+' , <span class="blankline" data-omr="q3-ans-2" data-ans-item="1" style="width:40px;"></span> &nbsp;(after)</div>';
   answers.push({question:2,type:'after',given:B,answer:B+1});
   const C=randInt(1,48);
-  out+='<div class="seqline"><span class="qn">3.</span> '+C+' , <span class="blankline" data-omr="q3-ans-3" style="width:40px;"></span> , '+(C+2)+' &nbsp;(between)</div>';
+  out+='<div class="seqline"><span class="qn">3.</span> '+C+' , <span class="blankline" data-omr="q3-ans-3" data-ans-item="2" style="width:40px;"></span> , '+(C+2)+' &nbsp;(between)</div>';
   answers.push({question:3,type:'between',given:[C,C+2],answer:C+1});
   const D=randInt(2,48);
-  out+='<div class="seqline"><span class="qn">4.</span> <span class="blankline" data-omr="q3-ans-4" style="width:40px;"></span> , '+D+' , '+(D+1)+' &nbsp;(before)</div>';
+  out+='<div class="seqline"><span class="qn">4.</span> <span class="blankline" data-omr="q3-ans-4" data-ans-item="3" style="width:40px;"></span> , '+D+' , '+(D+1)+' &nbsp;(before)</div>';
   answers.push({question:4,type:'before',given:[D,D+1],answer:D-1});
   const E=randInt(1,47);
-  out+='<div class="seqline"><span class="qn">5.</span> '+E+' , '+(E+1)+' , <span class="blankline" data-omr="q3-ans-5" style="width:40px;"></span> &nbsp;(after)</div>';
+  out+='<div class="seqline"><span class="qn">5.</span> '+E+' , '+(E+1)+' , <span class="blankline" data-omr="q3-ans-5" data-ans-item="4" style="width:40px;"></span> &nbsp;(after)</div>';
   answers.push({question:5,type:'after',given:[E,E+1],answer:E+2});
-  return {html:out, answers:{section:'Before After Between', items:answers}};
+  return {html:out+'</div>', answers:{section:'Before After Between', items:answers}};
 }
 
 function section4(){
   const syms=shuffle(['<','>','=','<','>']);
-  let out='';
+  let out='<div class="two-column-questions">';
   const answers=[];
   syms.forEach((sym,i)=>{
     let left,right;
     if(sym==='='){ left=randInt(1,50); right=left; }
     else if(sym==='<'){ left=randInt(1,48); right=randInt(left+1,50); }
     else { left=randInt(2,50); right=randInt(1,left-1); }
-    out+='<div class="seqline"><span class="qn">'+(i+1)+'.</span> '+left+' <span class="compbox" data-omr="q4-ans-'+(i+1)+'" style="vertical-align:middle;"></span> '+right+'</div>';
+    out+='<div class="seqline"><span class="qn">'+(i+1)+'.</span> '+left+' <span class="compbox" data-omr="q4-ans-'+(i+1)+'" data-ans-item="'+i+'" style="vertical-align:middle;"></span> '+right+'</div>';
     answers.push({question:i+1,left,right,answer:sym});
   });
-  return {html:out, answers:{section:'Compare Numbers', items:answers}};
+  return {html:out+'</div>', answers:{section:'Compare Numbers', items:answers}};
 }
 
 function section5(){
-  const objs=sample(SIZE_OBJECTS,5);
+  const objs=sample(SIZE_OBJECTS,2);
   let rows='';
   const answers=[];
   objs.forEach((obj,i)=>{
@@ -437,14 +450,14 @@ function section5(){
 }
 
 function section6(){
-  const icons=sample(COUNT_ICONS,5);
+  const icons=sample(COUNT_ICONS,2);
   let rows='';
   const answers=[];
   icons.forEach((icon,i)=>{
     const a=randInt(1,9),b=randInt(1,9);
     let imgsA=''; for(let k=0;k<a;k++) imgsA+=renderIcon(icon,22);
     let imgsB=''; for(let k=0;k<b;k++) imgsB+=renderIcon(icon,22);
-    rows+='<tr><td class="rownum">'+(i+1)+'</td><td><div class="eqcell"><div class="objcell">'+imgsA+'</div><span class="opsym">+</span><div class="objcell">'+imgsB+'</div><span class="opsym">=</span><span class="ansbox" data-omr="q6-ans-'+(i+1)+'"></span></div></td></tr>';
+    rows+='<tr><td class="rownum">'+(i+1)+'</td><td><div class="eqcell"><div class="objcell">'+imgsA+'</div><span class="opsym">+</span><div class="objcell">'+imgsB+'</div><span class="opsym">=</span><span class="ansbox" data-omr="q6-ans-'+(i+1)+'" data-ans-item="'+i+'"></span></div></td></tr>';
     answers.push({question:i+1,object:icon,addend1:a,addend2:b,answer:a+b,expression:a+' + '+b+' = '+(a+b)});
   });
   return {
@@ -454,7 +467,7 @@ function section6(){
 }
 
 function section7(){
-  const icons=sample(COUNT_ICONS,5);
+  const icons=sample(COUNT_ICONS,2);
   let rows='';
   const answers=[];
   icons.forEach((icon,i)=>{
@@ -463,7 +476,7 @@ function section7(){
     const positions=new Set(sample([...Array(total).keys()],crossCount));
     let imgs='';
     for(let k=0;k<total;k++) imgs+=iconWithCross(icon,24,positions.has(k));
-    rows+='<tr><td class="rownum">'+(i+1)+'</td><td><div class="eqcell"><div class="objcell">'+imgs+'</div><span class="opsym">=</span><span class="ansbox" data-omr="q7-ans-'+(i+1)+'"></span></div></td></tr>';
+    rows+='<tr><td class="rownum">'+(i+1)+'</td><td><div class="eqcell"><div class="objcell">'+imgs+'</div><span class="opsym">=</span><span class="ansbox" data-omr="q7-ans-'+(i+1)+'" data-ans-item="'+i+'"></span></div></td></tr>';
     answers.push({question:i+1,object:icon,total,crossedOut:crossCount,remaining:total-crossCount,expression:total+' - '+crossCount+' = '+(total-crossCount)});
   });
   return {
@@ -483,12 +496,12 @@ function tensOnesBlocks(number){
 function section8(){
   let rows='';
   const answers=[];
-  for(let i=0;i<5;i++){
-    const number=randInt(11,99);
-    const reveal=i<3;
+  for(let i=0;i<1;i++){
+      const number=randInt(11,99);
+      const reveal=i<1;
     const instr=reveal?'Show the number <b>'+number+'</b> using tens and ones.':'Look at the blocks. Write the number.';
     const blocks=tensOnesBlocks(number);
-    const answer='Tens: <span class="blankline" data-omr="q8-r'+(i+1)+'-tens"></span>&nbsp;&nbsp;Ones: <span class="blankline" data-omr="q8-r'+(i+1)+'-ones"></span>&nbsp;&nbsp;Number: <span class="blankline" data-omr="q8-r'+(i+1)+'-number" style="width:64px;"></span>';
+    const answer='Tens: <span class="blankline" data-omr="q8-r'+(i+1)+'-tens"></span>&nbsp;&nbsp;Ones: <span class="blankline" data-omr="q8-r'+(i+1)+'-ones"></span>&nbsp;&nbsp;Number: <span class="blankline" data-omr="q8-r'+(i+1)+'-number" data-ans-item="'+i+'" style="width:64px;"></span>';
     rows+='<tr><td class="rownum">'+(i+1)+'</td><td style="width:24%;">'+instr+'</td><td><div class="objcell">'+blocks+'</div></td><td style="width:30%;font-size:12px;">'+answer+'</td></tr>';
     answers.push({question:i+1,number,tens:Math.floor(number/10),ones:number%10});
   }
@@ -546,8 +559,8 @@ function buildPatternRow(){
 function section10(){
   let rows='';
   const answers=[];
-  for(let i=0;i<3;i++){
-    const {seq,label,type,next1,next2}=buildPatternRow();
+  for(let i=0;i<1;i++){
+      const {seq,label,type,next1,next2}=buildPatternRow();
     const shapesHtml=seq.map(s=>renderIcon(s,34)).join('');
     const blanksHtml='<span class="dashedbox" data-omr="q10-r'+(i+1)+'-next1"></span><span class="dashedbox" data-omr="q10-r'+(i+1)+'-next2"></span>';
     rows+='<tr><td class="rownum">'+(i+1)+'</td><td style="width:30%;">'+label+'</td><td><div class="objcell">'+shapesHtml+blanksHtml+'</div></td></tr>';
@@ -590,7 +603,7 @@ const COMPARE_PHRASES={
   glassWater:{adjBig:'with more water',adjSmall:'with less water',noun:'glass'}
 };
 function section11(){
-  const objs=sample(COMPARE_OBJECTS,5);
+  const objs=sample(COMPARE_OBJECTS,2);
   let rows='';
   const answers=[];
   objs.forEach((obj,i)=>{
@@ -649,18 +662,29 @@ const SECTION_TITLES=[
   'Section 11 — Compare the Objects'
 ];
 
+function worksheetQRHtml(setNum){
+  const student={studentName:document.getElementById('studentName')?.value.trim()||'UNASSIGNED',studentId:document.getElementById('studentId')?.value.trim()||'UNASSIGNED',classLevel:'CLASS_2',set:setNum};
+  const qr=qrcode(0,'M');qr.addData(JSON.stringify(student));qr.make();
+  return '<img class="worksheet-qr" alt="Student worksheet QR" style="width:18mm;height:18mm;float:right" src="'+qr.createDataURL(3,2)+'">';
+}
 function buildWorksheetAndKey(setNum){
-  const builders=[section1,section2,section3,section4,section5,section6,section7,section8,section9,section10,section11];
+  const builders=[section1,section3,section4,section5,section6,section7,section8,section9,section10,section11];
   let sectionsHtml='';
   const answerKey={
     set:setNum,
     generated:new Date().toISOString(),
-    totalSections:11,
+    totalSections:10,
     sections:[]
   };
   builders.forEach((fn,idx)=>{
     const result=fn();
-    sectionsHtml+='<div class="section" data-section="'+(idx+1)+'" style="page-break-inside:avoid;"><h2>'+SECTION_TITLES[idx]+'</h2>'+result.html+'</div>';
+    // Section 2 is intentionally omitted; retain the original section labels.
+    const titleIndex=idx===0?0:idx+1;
+    // data-sec-idx is the BUILDER index, which is what the backend numbers
+    // question ids by (Q_L<lvl>_<secIdx+1>_...). data-section above is the
+    // printed label and diverges from it, because section2 is not rendered.
+    // Answer-region capture must join on the builder index, never the label.
+    sectionsHtml+='<div class="section" data-sec-idx="'+idx+'" data-section="'+titleIndex+'" style="page-break-inside:avoid;"><h2>'+SECTION_TITLES[titleIndex]+'</h2>'+result.html+'</div>';
     answerKey.sections.push(result.answers);
   });
 
@@ -668,14 +692,20 @@ function buildWorksheetAndKey(setNum){
     '<div class="reg-sq bl"></div><div class="reg-sq br"></div>';
   const pid='SET-'+String(setNum).padStart(5,'0');
 
+  const studentName = document.getElementById('studentName')?.value.trim();
+  const studentId = document.getElementById('studentId')?.value.trim();
+  const nameText = (studentName && studentName !== 'UNASSIGNED') ? studentName : '______________________';
+  const idText = (studentId && studentId !== 'UNASSIGNED') ? studentId : '___________';
+  const studentDetails = `<div class="student-header-box" style="margin-top:6px;margin-bottom:4px;padding:5px 10px;background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:6px;font-size:13px;color:#0f172a;display:flex;align-items:center;justify-content:space-between;page-break-inside:avoid;"><div><span style="font-weight:700;color:#334155;text-transform:uppercase;font-size:11px;letter-spacing:0.5px;">Student Name:</span> <span style="font-weight:800;font-size:15px;color:#0284c7;margin-left:6px;text-transform:uppercase;">${nameText}</span></div><div><span style="font-weight:700;color:#334155;text-transform:uppercase;font-size:11px;letter-spacing:0.5px;">Student ID:</span> <span style="font-weight:700;font-family:monospace;font-size:13px;color:#475569;margin-left:6px;">${idText}</span></div></div>`;
+
   const worksheetHtml='<div class="page-wrapper">'+reg+
     '<div class="page" id="page-set-'+setNum+'">'+
     '<div class="ws-header">'+
-      '<div class="ws-title">CLASS 2 — MATHEMATICS PRACTICE WORKSHEET</div>'+
+      '<div class="ws-title">CLASS 2 — FLN DIAGNOSTIC PAPER</div>'+worksheetQRHtml(setNum)+
       '<div class="ws-sub">Set '+setNum+'</div>'+
-      '<div class="ws-fields"><span>Name:</span><span>Date:</span><span>Roll No.:</span><span>Marks: ____ / 100</span></div>'+
+      studentDetails+
     '</div>'+sectionsHtml+
-    '<div class="ws-footer">Class 2 — Math FLN Practice &nbsp;|&nbsp; Set '+setNum+'</div>'+
+    '<div class="ws-footer">Class 2 — FLN Diagnostic Paper &nbsp;|&nbsp; Set '+setNum+'</div>'+
     '<div class="ws-page-id">'+pid+'</div>'+
   '</div></div>';
   return {worksheetHtml, answerKey};
@@ -685,7 +715,8 @@ function buildWorksheetAndKey(setNum){
    ANSWER KEY HTML RENDERER
    ============================================================ */
 function renderAnswerKeyHTML(ak){
-  const s=ak.sections;
+  // Keep answer-key numbering aligned with the printed worksheet after Section 2 was removed.
+  const s=[ak.sections[0],{items:[]},...ak.sections.slice(1)];
   let html=`<div class="ak-page">
   <div class="ak-header">
     <div class="ak-title">ANSWER KEY — CLASS 2 MATHEMATICS</div>
@@ -697,13 +728,6 @@ function renderAnswerKeyHTML(ak){
   s[0].items.forEach(q=>{
     const ans=q.blanks.map(b=>`Pos ${b.position} → <span class="ak-ans">${b.value}</span>`).join(' &nbsp; ');
     html+=`<tr><td>${q.question}</td><td>${q.range}</td><td>${q.blanks.map(b=>'Pos '+b.position).join(', ')}</td><td>${ans}</td></tr>`;
-  });
-  html+=`</table></div>`;
-
-  html+=`<div class="ak-section"><h3>Section 2 — Count the Objects</h3>
-  <table class="aktable"><tr><th>#</th><th>Object</th><th>Count</th></tr>`;
-  s[1].items.forEach(q=>{
-    html+=`<tr><td>${q.question}</td><td>${cap(q.object)}</td><td><span class="ak-ans">${q.count}</span></td></tr>`;
   });
   html+=`</table></div>`;
 
@@ -784,29 +808,33 @@ function renderAnswerKeyHTML(ak){
 function icrForSection(sIdx,item){
   switch(sIdx){
     case 0: return {detect:'handwritten_digit',blanks:item.blanks.map(b=>({pos:b.position,expected:b.value}))};
-    case 1: return {detect:'handwritten_digit',expected:item.count};
-    case 2: return {detect:'handwritten_digit',expected:item.answer};
-    case 3: return {detect:'handwritten_symbol',expected:item.answer,options:['<','>','=']};
-    case 4: return {detect:'handwritten_digit_per_box',expected:item.ranking.map(r=>r.correctRank)};
-    case 5: return {detect:'handwritten_digit',expected:item.answer};
-    case 6: return {detect:'handwritten_digit',expected:item.remaining};
-    case 7: return {detect:'handwritten_digit_multi',fields:['tens','ones','number'],expected:{tens:item.tens,ones:item.ones,number:item.number}};
-    case 8: return {detect:'drawn_line_between_dots',from_label:item.shape,to_label:item.matchesTo};
-    case 9: return item.type==='pattern'
+    case 1: return {detect:'handwritten_digit',expected:item.answer};
+    case 2: return {detect:'handwritten_symbol',expected:item.answer,options:['<','>','=']};
+    case 3: return {detect:'handwritten_digit_per_box',expected:item.ranking.map(r=>r.correctRank)};
+    case 4: return {detect:'handwritten_digit',expected:item.answer};
+    case 5: return {detect:'handwritten_digit',expected:item.remaining};
+    case 6: return {detect:'handwritten_digit_multi',fields:['tens','ones','number'],expected:{tens:item.tens,ones:item.ones,number:item.number}};
+    case 7: return {detect:'drawn_line_between_dots',from_label:item.shape,to_label:item.matchesTo};
+    case 8: return item.type==='pattern'
       ? {detect:'drawn_or_written_shape',expected:item.answer}
       : {detect:(item.ask==='3rd position'?'handwritten_text':'circle_mark'),expected:item.answer};
-    case 10: return {detect:'circle_mark',expected_side:item.answer,options:['Left','Right']};
+    case 9: return {detect:'circle_mark',expected_side:item.answer,options:['Left','Right']};
     default: return {detect:'unspecified'};
   }
 }
 function buildMasterJSON(setNum,liveCoords){
   const ak=worksheetAnswers[setNum-1];
   const sections=ak.sections.map((sec,sIdx)=>{
-    const items=sec.items.map(item=>({
-      question:item.question!==undefined?item.question:null,
-      data:item,
-      icr:icrForSection(sIdx,item)
-    }));
+    console.log("sec =", JSON.stringify(sec, null, 2));
+    const items = sec.items.map(item => {
+      console.log("ITEM:", JSON.stringify(item, null, 2));
+
+      return {
+        question: item.question !== undefined ? item.question : null,
+        data: item,
+        icr: icrForSection(sIdx, item)
+      };
+    });
     return {section:sec.section,note:sec.note||null,items};
   });
   const regCoords=liveCoords?{tl:liveCoords['reg_sq_tl']||null,tr:liveCoords['reg_sq_tr']||null,bl:liveCoords['reg_sq_bl']||null,br:liveCoords['reg_sq_br']||null}:null;
@@ -824,6 +852,18 @@ function buildMasterJSON(setNum,liveCoords){
     coords_mm:coordsBySection,
     sections
   };
+}
+
+const QUESTION_ANSWER_FIELDS=new Set(['answer','answers','ans','correct_answer','expected_answer','expected','expected_value','expected_choice','expected_label','expected_side','matches','pairs','target_type','expected_count','circle','tick','matchesTo','correctRank','scanned_response','is_correct']);
+function questionOnly(value){
+  if(Array.isArray(value)) return value.map(questionOnly);
+  if(value&&typeof value==='object') return Object.fromEntries(Object.entries(value).filter(([key])=>!QUESTION_ANSWER_FIELDS.has(key)).map(([key,item])=>[key,questionOnly(item)]));
+  return value;
+}
+function buildQuestionPaperJSON(setNum,liveCoords){
+  const paper=questionOnly(buildMasterJSON(setNum,liveCoords));
+  paper.meta={...paper.meta,artifact:'question_paper',includes_answers:false};
+  return paper;
 }
 
 /* ============================================================
@@ -858,6 +898,70 @@ function captureCoords(pageEl){
     coords['dot:'+key]={x_min:mmV(r.left-pageRect.left),y_min:mmV(r.top-pageRect.top),x_max:mmV(r.right-pageRect.left),y_max:mmV(r.bottom-pageRect.top)};
   });
   return coords;
+}
+
+/**
+ * Answer regions keyed by the question they belong to.
+ *
+ * `captureCoords` above keys every region by its `data-omr` layout name
+ * ("q3-ans-1"), which is numbered after the section FUNCTION. Question ids are
+ * numbered after the position of that function in `builders`, and the two
+ * diverge from the second section onward because section2 is defined but never
+ * rendered. Anything that joined those two numberings — an OCR pass trying to
+ * decide which box holds question 4's answer — silently read the wrong box.
+ *
+ * This emits the association explicitly instead of leaving it to be inferred:
+ * the section wrapper carries the builder index, each answer element carries
+ * its item index (and blank ordinal, where a row has several), and the three
+ * together are exactly the coordinates the backend uses to mint a question id.
+ * The key is a reference, not a question id — the id format belongs to the
+ * backend and is composed there.
+ *
+ * Only elements explicitly marked `data-ans-item` are returned. Layout regions,
+ * matching dots and multi-box answers carry no such mark and are deliberately
+ * absent rather than guessed at; the backend reports any gradable question left
+ * without a region.
+ */
+function captureQuestionRegions(pageEl){
+  if(!pageEl) return {};
+  const pageRect=pageEl.getBoundingClientRect();
+  const regions={};
+  pageEl.querySelectorAll('[data-ans-item]').forEach(el=>{
+    const sec=el.closest('[data-sec-idx]');
+    if(!sec) return;
+    const secIdx=sec.getAttribute('data-sec-idx');
+    const item=el.getAttribute('data-ans-item');
+    const blank=el.getAttribute('data-ans-blank');
+    const ref='s'+secIdx+':i'+item+(blank!==null?':b'+blank:'');
+    // Position is recorded relative to the section's own heading, not to the
+    // page. The worksheet is authored as one long flow and paginated by the
+    // print engine, so a distance from the top of the document does not
+    // survive into the PDF — measured on a real paper, coordinates ran to
+    // 349mm across three A4 sheets. Sections carry page-break-inside:avoid, so
+    // they never split internally: an offset from the section heading is the
+    // same on paper as it is on screen, whichever sheet the section landed on.
+    // The heading text is in the PDF's text layer, so the reader can find it.
+    const heading=sec.querySelector('h2');
+    const anchorRect=heading?heading.getBoundingClientRect():sec.getBoundingClientRect();
+    const r=el.getBoundingClientRect();
+    let x=mmV(r.left-pageRect.left), y=mmV(r.top-pageRect.top);
+    let w=mmV(r.width), h=mmV(r.height);
+    let dx=mmV(r.left-anchorRect.left), dy=mmV(r.top-anchorRect.top);
+    // A `blankline` is a bottom border — a rule about 0.3mm tall. The child
+    // writes ABOVE it, so the element's own box is not the answer area and
+    // cropping it would return a sliver of empty paper. Record the writing
+    // space instead: the line's width, extended upward to a normal digit
+    // height. Boxed fields (ansbox, compbox, numbox) already enclose the
+    // answer and are stored as they are.
+    const WRITE_MM=7;
+    if(h<2){ y=Math.max(0,y-WRITE_MM); dy=dy-WRITE_MM; h=WRITE_MM; }
+    regions[ref]={
+      anchor:(heading?heading.textContent:'').trim(),
+      dx_mm:dx, dy_mm:dy,
+      x_mm:x, y_mm:y, w_mm:w, h_mm:h
+    };
+  });
+  return regions;
 }
 
 function buildOmrOverlay(pageEl,coords){
@@ -1006,6 +1110,7 @@ document.getElementById('dlAKBtn').addEventListener('click',async()=>{
   const setNum=String(currentSet).padStart(String(worksheetAnswers.length).length,'0');
   const zip=new JSZip();
   zip.file('Set_'+setNum+'_AnswerKey.json', JSON.stringify(ak,null,2));
+  zip.file('Set_'+setNum+'_QuestionPaper.json', JSON.stringify(buildQuestionPaperJSON(currentSet,null),null,2));
   const akHtmlFull=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Answer Key Set ${currentSet}</title>
   <style>
     body{font-family:Arial,sans-serif;background:#f5f5f5;padding:20px;}
@@ -1091,7 +1196,7 @@ document.getElementById('exportCoordsBtn').addEventListener('click',async()=>{
 const PDF_A4_W_MM  = 210;
 const PDF_A4_H_MM  = 297;
 const PDF_MARGIN_MM = 14;   // matches .page { padding: 14mm }
-const PDF_RENDER_SCALE = 1.2; // 1.2× gives ~114dpi — sharp enough, 40% faster than 1.5×
+const PDF_RENDER_SCALE = 1.8; // Keep text and SVG images sharp in exported PDFs.
 
 async function buildPdfBlobForSet(setIndex) {
   const renderRoot = document.getElementById('pdfRenderRoot');
@@ -1113,6 +1218,7 @@ async function buildPdfBlobForSet(setIndex) {
   // blocks = array of { top_px, bottom_px } relative to pageEl top-left
   // We measure every direct child that is either the header, a section, or the footer.
   // The ws-page-id div is tiny — lump it with the footer band.
+  // Keep each section (including its images) together on one printed page.
   const blockEls = [
     pageEl.querySelector('.ws-header'),
     ...Array.from(pageEl.querySelectorAll('.section')),
@@ -1202,11 +1308,11 @@ async function buildPdfBlobForSet(setIndex) {
     tmpCtx.clearRect(0, 0, canvasW, sliceH);
     tmpCtx.drawImage(fullCanvas, 0, pg.startPx, canvasW, sliceH, 0, 0, canvasW, sliceH);
 
-    const imgData = tmpCanvas.toDataURL('image/jpeg', 0.88);
+    const imgData = tmpCanvas.toDataURL('image/png');
 
     if (idx > 0) pdf.addPage();
     // Place with top margin; image fills full width
-    pdf.addImage(imgData, 'JPEG', 0, PDF_MARGIN_MM, PDF_A4_W_MM, sliceMM);
+    pdf.addImage(imgData, 'PNG', 0, PDF_MARGIN_MM, PDF_A4_W_MM, sliceMM);
 
     // Immediately clear the temp canvas to free memory
     tmpCtx.clearRect(0, 0, canvasW, sliceH);
@@ -1251,8 +1357,9 @@ document.getElementById('downloadSingleSetBtn').addEventListener('click',async()
 
     const masterJson=buildMasterJSON(setNum,coords);
     triggerTextDownload('MasterKey_Set'+padded+'.json',JSON.stringify(masterJson,null,2),'application/json');
+    triggerTextDownload('QuestionPaper_Set'+padded+'.json',JSON.stringify(buildQuestionPaperJSON(setNum,coords),null,2),'application/json');
     triggerTextDownload('AnswerKey_Set'+padded+'.csv',buildCSV(setNum,setNum),'text/csv');
-    pr.textContent='Done — Set '+setNum+' downloaded.';
+    pr.textContent='Done — worksheet, answer key, coordinates and question JSON downloaded.';
   }catch(e){
     console.error(e);
     pr.textContent='Failed: '+(e.message||e);
@@ -1289,6 +1396,7 @@ async function exportAllSetsAsZip(){
 
         const masterJson=buildMasterJSON(i,coords);
         zip.file(fileName+'_MasterKey.json', JSON.stringify(masterJson,null,2));
+        zip.file(fileName+'_QuestionPaper.json', JSON.stringify(buildQuestionPaperJSON(i,coords),null,2));
         zip.file(fileName+'_AnswerKey.csv', buildCSV(i,i));
 
         const ak=worksheetAnswers[i-1];
@@ -1356,6 +1464,7 @@ document.getElementById('exportAllBtn').addEventListener('click',exportAllSetsAs
 window.generateSets=generateSets;
 window.captureCoords=captureCoords;
 window.buildMasterJSON=buildMasterJSON;
+window.buildQuestionPaperJSON=buildQuestionPaperJSON;
 window.buildCSV=buildCSV;
 window.activateSet=activateSet;
 window.buildWorksheetAndKey=buildWorksheetAndKey;

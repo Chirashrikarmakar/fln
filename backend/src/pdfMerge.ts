@@ -3,6 +3,8 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 export interface StudentInfo {
   rollNo?: string;
   name: string;
+  studentId?: string;
+  qrData?: Record<string, unknown>;
 }
 
 export interface RenderedSet {
@@ -29,7 +31,7 @@ export async function mergeAndStamp(renderedSets: RenderedSet[], students: Stude
     const copiedPages = await mergedPdf.copyPages(setPdf, setPdf.getPageIndices());
 
     const rollNo = student.rollNo || String(i + 1);
-    const label = `Roll No: ${rollNo}   |   ${student.name}`;
+    const label = `STUDENT: ${student.name.toUpperCase()}   (ID: ${student.studentId || student.rollNo || rollNo})`;
     const fontSize = 9;
     const textWidth = font.widthOfTextAtSize(label, fontSize);
 
