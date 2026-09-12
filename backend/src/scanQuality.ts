@@ -19,9 +19,12 @@ export type ScanQualityResult = {
  * Inspects image headers to validate resolution, dimensions, orientation,
  * file size, and supported MIME types before dispatching to OCR.
  *
- * (Note: Pixel-level brightness, contrast, and blur metrics are deferred to
- * a follow-up task to allow proper uncompressed pixel decoding without
- * native dependency issues).
+ * NOTE FOR FUTURE CONTRIBUTORS (Pixel-based checks):
+ * Do not attempt to calculate brightness, contrast, or blur by sampling bytes
+ * from the raw compressed buffer (JPEG/PNG streams contain DCT coefficients and
+ * deflate codes, not spatial luminance). Pixel-level metrics must be implemented
+ * using fully decoded raster pixels once an image decoding library (e.g. sharp
+ * or a pure-JS decoder) is approved.
  */
 export function analyzeScanQuality(imageBuffer: Buffer, mimeType?: string): ScanQualityResult {
   const reasons: string[] = [];
