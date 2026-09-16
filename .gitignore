@@ -1,3 +1,19 @@
+<<<<<<< HEAD
+=======
+# Archive and outputs
+>>>>>>> origin/main
 archive/
 node_modules/
 .DS_Store
+<<<<<<< HEAD
+=======
+.env
+backend/data/
+backend/dist/
+frontend/dist/
+*.log
+# AI-services pipeline output (regenerates per-run; not source)
+ai-services/personalized_evaluation/class_*/
+backend/npm
+
+>>>>>>> origin/main
