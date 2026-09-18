@@ -60,6 +60,14 @@ export interface PrerequisiteGroup {
  * teacher sessions, not on paper"). Add a conceptId here to override its
  * default single-AND-group behaviour.
  */
+// Per Pavani's 2026-09-18 call with Jinal/Lakshya: loosening an edge from AND to
+// OR needs a real feedback loop from student response data ("everything is
+// tentative... we will create a feedback loop where we learn from the student
+// responses and improve the levels") -- not expert judgment alone, and not a
+// guess made while wiring up code. Treat every entry below as needing that
+// evidence trail (captured via `rationale`) before it ships, and route the
+// actual sign-off through Pavani, consistent with how she reviewed every node
+// in PR #517 herself rather than trusting an AI pass unchecked.
 export const CONCEPT_PREREQUISITE_GROUP_OVERRIDES: Readonly<Record<string, readonly PrerequisiteGroup[]>> = {
   // Example shape for whoever adds the first OR case:
   // 'S3.25': [
