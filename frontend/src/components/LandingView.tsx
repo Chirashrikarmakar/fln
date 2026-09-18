@@ -28,10 +28,20 @@ interface Stats {
 }
 
 const REPO_URL = 'https://github.com/vicharanashala/fln';
-const CURRICULUM_MAP_URL = 'https://github.com/vicharanashala/fln/blob/main/backend/src/config/curriculumMap.ts';
 const RESEARCH_URL = 'https://github.com/vicharanashala/fln/tree/main/Research';
 
 const FRAMEWORK_PRINCIPLES = ['p1', 'p2', 'p3', 'p4'];
+
+/** Which of the four colour bands a cell's count falls in. 0 = not introduced. */
+const bandOf = (count: number): 0 | 1 | 2 | 3 | 4 => {
+  if (count <= 0) return 0;
+  if (count <= 2) return 1;
+  if (count <= 4) return 2;
+  if (count <= 6) return 3;
+  return 4;
+};
+
+const BAND_LABELS: Record<1 | 2 | 3 | 4, string> = { 1: '1–2', 2: '3–4', 3: '5–6', 4: '7+' };
 
 const HOW_STEPS = [
   { key: 'step1', icon: FileText },
@@ -384,35 +394,95 @@ export const LandingView: React.FC<LandingViewProps> = ({ onNavigateToLogin, isL
               ))}
             </dl>
 
-            <p className="mt-8 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
-              {t('landing.framework.strandsTitle')}
-            </p>
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {curriculumSummary.strands.map((strand) => (
-                <li
-                  key={strand.name}
-                  className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-slate-50 px-3 py-1 text-xs text-gray-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                >
-                  {strand.name}
-                  <span className="font-bold text-indigo-700 dark:text-indigo-300">{strand.count}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="fln-heatmap mt-10">
+              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                {t('landing.framework.mapTitle')}
+              </p>
+              <p className="mt-1 max-w-3xl text-xs leading-relaxed text-gray-500 dark:text-slate-400">
+                {t('landing.framework.mapCaption')}
+              </p>
+
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-auto text-xs">
+                  <caption className="sr-only">{t('landing.framework.mapCaption')}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col" className="px-2 pb-2 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                        {t('landing.framework.mapStrand')}
+                      </th>
+                      {curriculumSummary.stages.map((stage) => (
+                        <th
+                          key={stage.stage}
+                          scope="col"
+                          className="w-14 px-1 pb-2 text-center text-[10px] font-semibold tabular-nums text-gray-500 dark:text-slate-400"
+                        >
+                          {stage.ageLabel}
+                        </th>
+                      ))}
+                      <th scope="col" className="px-2 pb-2 text-right text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                        {t('landing.framework.mapTotal')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {curriculumSummary.matrix.map((row) => (
+                      <tr key={row.strand}>
+                        <th scope="row" className="whitespace-nowrap py-1 pr-3 text-left text-xs font-medium text-gray-700 dark:text-slate-200">
+                          {row.strand}
+                        </th>
+                        {row.counts.map((count, index) => {
+                          const band = bandOf(count);
+                          const stage = curriculumSummary.stages[index];
+                          return (
+                            <td
+                              key={stage.stage}
+                              title={
+                                band === 0
+                                  ? `${row.strand} — ${t('landing.framework.mapNone').toLowerCase()} (${t('landing.framework.mapAges').toLowerCase()} ${stage.ageLabel})`
+                                  : t('landing.framework.mapCell', { count, strand: row.strand, ages: stage.ageLabel })
+                              }
+                              className="h-8 w-14 rounded text-center text-xs font-bold tabular-nums"
+                              style={
+                                band === 0
+                                  ? undefined
+                                  : { backgroundColor: `var(--cell-${band})`, color: `var(--ink-${band})` }
+                              }
+                            >
+                              {band === 0 ? <span className="text-gray-300 dark:text-slate-700">·</span> : count}
+                            </td>
+                          );
+                        })}
+                        <td className="py-1 pl-3 text-right text-xs font-bold tabular-nums text-gray-900 dark:text-white">
+                          {row.total}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-gray-500 dark:text-slate-400">
+                <span className="font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                  {t('landing.framework.mapLegend')}
+                </span>
+                {([1, 2, 3, 4] as const).map((band) => (
+                  <span key={band} className="inline-flex items-center gap-1.5">
+                    <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: `var(--cell-${band})` }} />
+                    <span className="tabular-nums">{BAND_LABELS[band]}</span>
+                  </span>
+                ))}
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-sm border border-gray-200 dark:border-slate-700" />
+                  {t('landing.framework.mapNone')}
+                </span>
+              </div>
+            </div>
 
             <p className="mt-6 text-xs leading-relaxed text-gray-500 dark:text-slate-400">
               {t('landing.framework.generatedNote')}
             </p>
 
             <div className="mt-5 flex flex-wrap gap-3">
-              <a
-                href={CURRICULUM_MAP_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                <GitBranch className="h-3.5 w-3.5" />
-                {t('landing.framework.ctaMap')}
-              </a>
               <a
                 href={RESEARCH_URL}
                 target="_blank"
