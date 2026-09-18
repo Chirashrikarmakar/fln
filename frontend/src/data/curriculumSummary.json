@@ -1,0 +1,49 @@
+{
+  "totalConcepts": 109,
+  "totalStages": 7,
+  "totalStrands": 10,
+  "ageMin": 3,
+  "ageMax": 10,
+  "strands": [
+    {
+      "name": "Number Sense",
+      "count": 33
+    },
+    {
+      "name": "Number Operations",
+      "count": 18
+    },
+    {
+      "name": "Shapes & Spatial",
+      "count": 16
+    },
+    {
+      "name": "Measurement",
+      "count": 10
+    },
+    {
+      "name": "Pre-Number Foundations",
+      "count": 10
+    },
+    {
+      "name": "Patterns",
+      "count": 9
+    },
+    {
+      "name": "Calendar & Time",
+      "count": 4
+    },
+    {
+      "name": "Data Handling",
+      "count": 3
+    },
+    {
+      "name": "Fractions",
+      "count": 3
+    },
+    {
+      "name": "Money",
+      "count": 3
+    }
+  ]
+}

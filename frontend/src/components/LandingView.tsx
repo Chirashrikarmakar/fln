@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Award, BookOpen, Users, BarChart3, MapPin, FileText, Printer, PencilLine, ScanLine, Stethoscope, RefreshCw, WifiOff, GitBranch, ShieldCheck, Github } from 'lucide-react';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import curriculumSummary from '../data/curriculumSummary.json';
 
 interface LandingViewProps {
   onNavigateToLogin: () => void;
@@ -27,7 +28,10 @@ interface Stats {
 }
 
 const REPO_URL = 'https://github.com/vicharanashala/fln';
-const FRAMEWORK_URL = 'https://github.com/vicharanashala/fln/blob/main/README.md#the-level-framework';
+const CURRICULUM_MAP_URL = 'https://github.com/vicharanashala/fln/blob/main/backend/src/config/curriculumMap.ts';
+const RESEARCH_URL = 'https://github.com/vicharanashala/fln/tree/main/Research';
+
+const FRAMEWORK_PRINCIPLES = ['p1', 'p2', 'p3', 'p4'];
 
 const HOW_STEPS = [
   { key: 'step1', icon: FileText },
@@ -337,6 +341,91 @@ export const LandingView: React.FC<LandingViewProps> = ({ onNavigateToLogin, isL
           </div>
         </section>
 
+        {/* What the framework is built on */}
+        <section id="framework" className="mt-20 scroll-mt-8">
+          <h3 className="text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+            {t('landing.framework.title')}
+          </h3>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-gray-600 dark:text-slate-300">
+            {t('landing.framework.intro')}
+          </p>
+
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+            {FRAMEWORK_PRINCIPLES.map((key) => (
+              <div
+                key={key}
+                className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-950/50"
+              >
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  {t(`landing.framework.${key}Title`)}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-slate-300">
+                  {t(`landing.framework.${key}Body`)}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Shape of the framework — generated from curriculumMap.ts at build time */}
+          <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-950/50">
+            <dl className="grid grid-cols-2 gap-6 text-center sm:grid-cols-4">
+              {[
+                { label: t('landing.framework.statConcepts'), value: curriculumSummary.totalConcepts },
+                { label: t('landing.framework.statStages'), value: curriculumSummary.totalStages },
+                { label: t('landing.framework.statStrands'), value: curriculumSummary.totalStrands },
+                { label: t('landing.framework.statAges'), value: `${curriculumSummary.ageMin}–${curriculumSummary.ageMax}` },
+              ].map((item) => (
+                <div key={item.label}>
+                  <dd className="text-3xl font-extrabold text-gray-900 dark:text-white">{item.value}</dd>
+                  <dt className="mt-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                    {item.label}
+                  </dt>
+                </div>
+              ))}
+            </dl>
+
+            <p className="mt-8 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+              {t('landing.framework.strandsTitle')}
+            </p>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {curriculumSummary.strands.map((strand) => (
+                <li
+                  key={strand.name}
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-slate-50 px-3 py-1 text-xs text-gray-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  {strand.name}
+                  <span className="font-bold text-indigo-700 dark:text-indigo-300">{strand.count}</span>
+                </li>
+              ))}
+            </ul>
+
+            <p className="mt-6 text-xs leading-relaxed text-gray-500 dark:text-slate-400">
+              {t('landing.framework.generatedNote')}
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <a
+                href={CURRICULUM_MAP_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <GitBranch className="h-3.5 w-3.5" />
+                {t('landing.framework.ctaMap')}
+              </a>
+              <a
+                href={RESEARCH_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                {t('landing.framework.ctaResearch')}
+              </a>
+            </div>
+          </div>
+        </section>
+
         {/* Assessment cycle order */}
         <h3 className="mt-20 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
           {t('landing.cycle.title')}
@@ -411,9 +500,7 @@ export const LandingView: React.FC<LandingViewProps> = ({ onNavigateToLogin, isL
               {t('landing.involve.ctaCode')}
             </a>
             <a
-              href={FRAMEWORK_URL}
-              target="_blank"
-              rel="noreferrer"
+              href="#framework"
               className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               {t('landing.involve.ctaFramework')}
