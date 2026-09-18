@@ -6,7 +6,7 @@ import { apiFetch, withBase } from '../services/apiClient';
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sparkles, Award, Globe, BookOpen, Users, BarChart3, ArrowRight, MapPin } from 'lucide-react';
+import { Award, BookOpen, Users, BarChart3, MapPin, FileText, Printer, PencilLine, ScanLine, Stethoscope, RefreshCw, WifiOff, GitBranch, ShieldCheck, Github } from 'lucide-react';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface LandingViewProps {
@@ -25,6 +25,32 @@ interface Stats {
   certifiedCount?: number;
   certifiedPercent?: number;
 }
+
+const REPO_URL = 'https://github.com/vicharanashala/fln';
+const FRAMEWORK_URL = 'https://github.com/vicharanashala/fln/blob/main/README.md#the-level-framework';
+
+const HOW_STEPS = [
+  { key: 'step1', icon: FileText },
+  { key: 'step2', icon: Printer },
+  { key: 'step3', icon: PencilLine },
+  { key: 'step4', icon: ScanLine },
+  { key: 'step5', icon: Stethoscope },
+  { key: 'step6', icon: RefreshCw },
+];
+
+const USP_ITEMS = [
+  { title: 'landing.usp.paperTitle', body: 'landing.usp.paperBody', icon: WifiOff },
+  { title: 'landing.usp.diagnosisTitle', body: 'landing.usp.diagnosisBody', icon: GitBranch },
+  { title: 'landing.usp.auditableTitle', body: 'landing.usp.auditableBody', icon: ShieldCheck },
+  { title: 'landing.usp.openTitle', body: 'landing.usp.openBody', icon: Github },
+];
+
+const AUDIENCE_ITEMS = [
+  { title: 'landing.audience.teachersTitle', body: 'landing.audience.teachersBody' },
+  { title: 'landing.audience.headsTitle', body: 'landing.audience.headsBody' },
+  { title: 'landing.audience.statesTitle', body: 'landing.audience.statesBody' },
+  { title: 'landing.audience.researchTitle', body: 'landing.audience.researchBody' },
+];
 
 export const LandingView: React.FC<LandingViewProps> = ({ onNavigateToLogin, isLoggedIn }) => {
   const { t } = useTranslation();
@@ -153,6 +179,10 @@ export const LandingView: React.FC<LandingViewProps> = ({ onNavigateToLogin, isL
             <span className="text-[140px] font-black select-none text-slate-200 dark:text-slate-800">FLN</span>
           </div>
 
+          <p className="mb-4 inline-block rounded-full border border-indigo-200 bg-indigo-50 px-4 py-1 text-[11px] font-bold uppercase tracking-wider text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
+            {t('landing.heroBadge')}
+          </p>
+
           <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-5xl max-w-4xl mx-auto leading-tight">
             {t('landing.heroTitle')}
           </h2>
@@ -160,7 +190,34 @@ export const LandingView: React.FC<LandingViewProps> = ({ onNavigateToLogin, isL
             {t('landing.heroSubtitle')}
           </p>
 
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="#how-it-works"
+              className="rounded-lg bg-indigo-700 px-6 py-3 text-sm font-bold text-white shadow-md transition hover:bg-indigo-600 dark:bg-indigo-800 dark:hover:bg-indigo-700"
+            >
+              {t('landing.heroCtaHow')}
+            </a>
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-6 py-3 text-sm font-bold text-slate-700 transition hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <Github className="h-4 w-4" />
+              {t('landing.heroCtaCode')}
+            </a>
+          </div>
         </div>
+
+        {/* The problem */}
+        <section className="mx-auto mt-16 max-w-3xl rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-950/50">
+          <h3 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+            {t('landing.problem.title')}
+          </h3>
+          <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-slate-300">
+            {t('landing.problem.body')}
+          </p>
+        </section>
 
         {/* Stats Grid */}
         <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -221,8 +278,70 @@ export const LandingView: React.FC<LandingViewProps> = ({ onNavigateToLogin, isL
           </div>
         </div>
 
+        {/* How it works */}
+        <section id="how-it-works" className="mt-20 scroll-mt-8">
+          <h3 className="text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+            {t('landing.how.title')}
+          </h3>
+          <ol className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {HOW_STEPS.map((step, index) => {
+              const Icon = step.icon;
+              return (
+                <li
+                  key={step.key}
+                  className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-950/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-extrabold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                      {index + 1}
+                    </span>
+                    <Icon className="h-5 w-5 text-slate-400 dark:text-slate-500" aria-hidden="true" />
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {t(`landing.how.${step.key}Title`)}
+                    </p>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-slate-300">
+                    {t(`landing.how.${step.key}Body`)}
+                  </p>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        {/* What makes this different */}
+        <section className="mt-20">
+          <h3 className="text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+            {t('landing.usp.title')}
+          </h3>
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+            {USP_ITEMS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.title}
+                  className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-950/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="rounded-lg bg-indigo-50 p-2 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <p className="font-semibold text-gray-900 dark:text-white">{t(item.title)}</p>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-slate-300">
+                    {t(item.body)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
         {/* Assessment cycle order */}
-        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
+        <h3 className="mt-20 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          {t('landing.cycle.title')}
+        </h3>
+        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
           <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 text-center shadow-sm dark:shadow-slate-950/50">
             <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">{t('landing.cycle.cycle1')}</p>
             <p className="mt-2 font-semibold text-gray-900 dark:text-white">{t('landing.cycle.cycle1Title')}</p>
@@ -239,15 +358,87 @@ export const LandingView: React.FC<LandingViewProps> = ({ onNavigateToLogin, isL
             <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">{t('landing.cycle.cycle3Description')}</p>
           </div>
         </div>
+
+        {/* Who it is for */}
+        <section className="mt-20">
+          <h3 className="text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+            {t('landing.audience.title')}
+          </h3>
+          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {AUDIENCE_ITEMS.map((item) => (
+              <div
+                key={item.title}
+                className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-950/50"
+              >
+                <p className="font-semibold text-gray-900 dark:text-white">{t(item.title)}</p>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-slate-300">
+                  {t(item.body)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Where this stands today */}
+        <section className="mt-20 rounded-2xl border border-amber-200 bg-amber-50 p-8 dark:border-amber-900/50 dark:bg-amber-950/20">
+          <h3 className="text-xl font-bold tracking-tight text-amber-900 dark:text-amber-200">
+            {t('landing.scope.title')}
+          </h3>
+          <p className="mt-2 font-semibold text-amber-900 dark:text-amber-200">
+            {t('landing.scope.subtitle')}
+          </p>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-amber-900/80 dark:text-amber-100/70">
+            {t('landing.scope.body')}
+          </p>
+        </section>
+
+        {/* Built in the open */}
+        <section className="mt-12 rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-950/50">
+          <h3 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
+            {t('landing.involve.title')}
+          </h3>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-slate-300">
+            {t('landing.involve.body')}
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-600 dark:bg-indigo-800 dark:hover:bg-indigo-700"
+            >
+              <Github className="h-4 w-4" />
+              {t('landing.involve.ctaCode')}
+            </a>
+            <a
+              href={FRAMEWORK_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              {t('landing.involve.ctaFramework')}
+            </a>
+          </div>
+        </section>
       </main>
 
       {/* Footer */}
       <footer className="bg-[#111827] text-slate-400 dark:text-slate-400 py-8 border-t border-gray-800 text-center text-xs">
         <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-left">
-            <p>© 2026 Assessment Platform. Handcrafted for educational diagnostics.</p>
-            <p className="mt-1 text-slate-500 dark:text-slate-500">Technical Support & Platform Host: Secure Education Services.</p>
+            <p>{t('footer.built')}</p>
+            <p className="mt-1 text-slate-500 dark:text-slate-500">{t('footer.license')}</p>
+            <p className="mt-1 text-slate-500 dark:text-slate-500">{t('footer.copyright')}</p>
           </div>
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 text-slate-300 transition hover:text-white"
+          >
+            <Github className="h-4 w-4" />
+            GitHub
+          </a>
         </div>
       </footer>
     </div>
