@@ -5,6 +5,7 @@ import { MongoClient, Db, ClientSession } from 'mongodb';
 import { CURRICULUM_MAPPING } from './config/curriculumMap';
 import type { StudentCycleLock } from './paperLock';
 import type { ScanQualityResult } from './scanQuality';
+import type { QuestionFamily } from './types/questionTemplateParams';
 
 const DB_DIR = path.resolve(process.cwd(), 'data');
 const DB_FILE = path.resolve(DB_DIR, 'db.json');
@@ -792,7 +793,7 @@ export interface QuestionTemplate {
   generationIntent: string;
 
   /** Which family of question this intent produces. Governs how it is rendered. */
-  questionFamily: 'counting' | 'operation';
+  questionFamily: QuestionFamily;
 
   /**
    * How this row was authored. `structured` rows carry a generationIntent and
