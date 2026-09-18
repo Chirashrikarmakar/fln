@@ -29,6 +29,68 @@
 
 import { getLevelForConcept } from './config/curriculumMap';
 
+/**
+ * Group-based prerequisite override, added 2026-09-18 per the team's OR-modular
+ * decision: start every node's prerequisites as a single AND group (the flat
+ * CONCEPT_PREREQUISITES table below already IS that AND group), and loosen a
+ * *specific* node to OR later by adding one entry here — never by restructuring
+ * CONCEPT_PREREQUISITES or touching any other node.
+ *
+ * A node is satisfied when AT LEAST ONE of its groups is fully satisfied (all
+ * memberIds in that group are met). Leaving a conceptId out of this map means
+ * "one AND group, exactly the members in CONCEPT_PREREQUISITES" — today's
+ * existing behaviour, unchanged. `status` records whether a group is still a
+ * design hypothesis or has been confirmed by pilot data / teacher sessions
+ * (see #466) — it does not affect evaluation, only reporting.
+ */
+export type PrerequisiteGroupType = 'AND' | 'OR';
+export type PrerequisiteGroupStatus = 'hypothesis' | 'confirmed';
+
+export interface PrerequisiteGroup {
+  groupId: string;
+  type: PrerequisiteGroupType;
+  memberIds: readonly string[];
+  rationale?: string;
+  status: PrerequisiteGroupStatus;
+}
+
+/**
+ * Explicit per-node overrides only. Empty today — no edge has been loosened to
+ * OR yet (see #466: "which prerequisites are really OR ... settle through
+ * teacher sessions, not on paper"). Add a conceptId here to override its
+ * default single-AND-group behaviour.
+ */
+export const CONCEPT_PREREQUISITE_GROUP_OVERRIDES: Readonly<Record<string, readonly PrerequisiteGroup[]>> = {
+  // Example shape for whoever adds the first OR case:
+  // 'S3.25': [
+  //   { groupId: 'g1', type: 'AND', memberIds: ['S3.2'], status: 'hypothesis' },
+  //   { groupId: 'g2', type: 'OR',  memberIds: ['S3.1', 'S3.6'], rationale: '...', status: 'hypothesis' },
+  // ],
+};
+
+/**
+ * Resolved prerequisite groups for a concept: the override if one exists,
+ * otherwise the single implicit AND group derived from CONCEPT_PREREQUISITES.
+ */
+export function prerequisiteGroups(conceptId: string): readonly PrerequisiteGroup[] {
+  const override = CONCEPT_PREREQUISITE_GROUP_OVERRIDES[conceptId];
+  if (override) return override;
+  const flat = CONCEPT_PREREQUISITES[conceptId];
+  if (!flat || flat.length === 0) return [];
+  return [{ groupId: 'g1', type: 'AND', memberIds: flat, status: 'hypothesis' }];
+}
+
+/**
+ * Whether conceptId's prerequisites are satisfied, given the set of concepts
+ * already mastered. True when at least one group is fully covered by `mastered`
+ * (or when the concept has no prerequisite groups at all — an entry node).
+ */
+export function isPrerequisiteSatisfied(conceptId: string, mastered: ReadonlySet<string>): boolean {
+  const groups = prerequisiteGroups(conceptId);
+  if (groups.length === 0) return true;
+  return groups.some(g => g.memberIds.every(id => mastered.has(id)));
+}
+
 export const CONCEPT_PREREQUISITES: Readonly<Record<string, readonly string[]>> = {
 
   // Chain A — Pre-Number Foundations
