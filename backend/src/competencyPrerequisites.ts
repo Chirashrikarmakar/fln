@@ -1,5 +1,6 @@
 /**
- * Prerequisite edges for the 93-level FLN curriculum, keyed by conceptId.
+ * Prerequisite edges for the FLN curriculum (108 levels as of PR #517's Stage-3
+ * finalisation, 2026-09-18), keyed by conceptId.
  *
  * SOURCE OF TRUTH: `Research/fln_level_networks.md` — Part 2, "The Ten Strand
  * Chains (the actual prerequisite graph)". That document expresses the graph as
@@ -45,10 +46,10 @@ export const CONCEPT_PREREQUISITES: Readonly<Record<string, readonly string[]>> 
   'S3.1': ['S2.5'],
   'S3.2': ['S3.1'],
   'S3.6': ['S3.2'],
-  'S4.3': ['S3.6'],
+  'S4.3': ['S3.6', 'S3.11'],
   'S4.13': ['S3.6'],
   'S4.12': ['S2.4', 'S3.2'],
-  'S4.4': ['S4.3'],
+  'S4.4': ['S4.3', 'S3.13'],
   'S4.5': ['S4.4'],
   'S5.1': ['S4.5'],
   'S5.2': ['S5.1'],
@@ -62,13 +63,18 @@ export const CONCEPT_PREREQUISITES: Readonly<Record<string, readonly string[]>> 
   'S7.2': ['S7.1'],
   'S4.2': ['S4.1'],
   'S7.15': ['S7.1'],
+  // Added 2026-09-18, PR #517 §5g (Research/fln_level_networks.md Part 2b) — the year-before-Class-1 stage finalisation.
+  'S3.11': ['S1.4'],
+  'S3.12': ['S2.4'],
+  'S3.13': ['S3.1'],
 
   // Chain C — Number Operations
-  'S4.6': ['S4.4'],
-  'S4.7': ['S4.4'],
+  'S4.6': ['S4.4', 'S3.14'],
+  'S4.7': ['S4.4', 'S3.15'],
   'S5.4': ['S4.6', 'S5.2'],
   'S5.5': ['S4.7'],
-  'S5.6': ['S5.4'],
+  'S5.6': ['S5.4', 'S3.16'],
+  'S5.7': ['S3.17'],
   'S5.8': ['S5.6', 'S5.19'],
   'S6.5': ['S5.4', 'S5.5', 'S6.1'],
   'S6.6': ['S5.8'],
@@ -76,19 +82,28 @@ export const CONCEPT_PREREQUISITES: Readonly<Record<string, readonly string[]>> 
   'S7.3': ['S6.5', 'S7.1'],
   'S7.5': ['S7.4'],
   'S7.14': ['S6.6'],
+  // Added 2026-09-18, PR #517 §5g — S5.7 previously had no incoming prerequisite edge.
+  'S3.14': ['S2.5'],
+  'S3.15': ['S2.5'],
+  'S3.16': ['S2.5'],
+  'S3.17': ['S1.1'],
 
   // Chain D — Shapes & Spatial
   'S3.9': ['S1.6'],
-  'S4.8': ['S2.6'],
-  'S6.9': ['S4.8'],
+  'S4.8': ['S2.6', 'S3.20'],
+  'S6.9': ['S4.8', 'S3.21'],
   'S7.9': ['S6.9'],
   'S3.10': ['S2.10'],
   'S4.15': ['S3.10'],
+  // Added 2026-09-18, PR #517 §5g.
+  'S3.20': ['S2.6'],
+  'S3.21': ['S2.6'],
+  'S3.22': ['S2.6'],
 
   // Chain E — Measurement
   'S3.7': ['S2.8'],
   'S4.9': ['S3.7'],
-  'S4.10': ['S3.7'],
+  'S4.10': ['S3.7', 'S3.23'],
   'S5.11': ['S4.9', 'S4.10'],
   'S6.8': ['S5.11'],
   'S7.7': ['S6.8'],
@@ -102,6 +117,9 @@ export const CONCEPT_PREREQUISITES: Readonly<Record<string, readonly string[]>> 
   'S5.19': ['S5.16'],
   'S6.13': ['S5.19'],
   'S7.12': ['S6.13'],
+  // Added 2026-09-18, PR #517 §5g.
+  'S3.18': ['S3.8'],
+  'S3.19': ['S3.8'],
 
   // Chain G — Money
   'S6.11': ['S5.9'],
@@ -109,6 +127,8 @@ export const CONCEPT_PREREQUISITES: Readonly<Record<string, readonly string[]>> 
 
   // Chain H — Calendar & Time
   'S7.10': ['S6.10'],
+  // Added 2026-09-18, PR #517 §5g — S5.14 previously had no incoming prerequisite edge.
+  'S5.14': ['S3.24'],
 
   // Chain I — Fractions
   'S6.12': ['S5.10'],

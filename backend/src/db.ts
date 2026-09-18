@@ -1684,22 +1684,32 @@ export class DBStore {
   }
 
   /**
-     * Level range for a given class, per the 93-level FLN registry
+     * Level range for a given class, per the FLN registry
      * (see backend/src/config/curriculumMap.ts).
      *
-     *   Pre-school 1:  1-7
-     *   Pre-school 2:  8-17
-     *   Pre-school 3: 18-27
-     *   Class 1:      28-42
-     *   Class 2:      43-61
-     *   Class 3:      62-75
-     *   Class 4:      76-93
+     * Updated 2026-09-18 for PR #517 (the year-before-Class-1/"Balvatika" stage
+     * finalisation against NCF-FS), which added 15 nodes and moved 4 nodes into
+     * Stage 3, shifting every boundary below from L28 onward. The registry is
+     * now 108 levels, not 93.
+     *
+     *   Pre-school 1:            1-7
+     *   Pre-school 2:            8-17
+     *   Year before Class 1:    18-46   (was Pre-school 3, 18-27 — see curriculumMap.ts)
+     *   Class 1:                47-59
+     *   Class 2:                60-76
+     *   Class 3:                77-90
+     *   Class 4:                91-108
+     *
+     * classNumber here is documented (db.ts CertificationEligibility etc.) as 2-4
+     * per SRS §3 — the classNumber<=1 branch exists but Class 1 / the year-before
+     * stage are not yet wired into real paper generation (see PR #517 §9: student
+     * + teacher-observation worksheet generation for that stage is still to be built).
      */
   static classLevelRange(classNumber: number): { min: number; max: number } {
-    if (classNumber <= 1) return { min: 28, max: 42 }; // class 1
-    if (classNumber === 2) return { min: 43, max: 61 };
-    if (classNumber === 3) return { min: 62, max: 75 };
-    return { min: 76, max: 93 }; // class 4 (and any >4 default)
+    if (classNumber <= 1) return { min: 47, max: 59 }; // class 1
+    if (classNumber === 2) return { min: 60, max: 76 };
+    if (classNumber === 3) return { min: 77, max: 90 };
+    return { min: 91, max: 108 }; // class 4 (and any >4 default)
   }
 
   /**
