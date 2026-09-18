@@ -48,8 +48,20 @@ export const CURRICULUM_MAPPING: Record<number, LevelConceptConfig> = {
   18: { levelNumber: 18, levelTitle: "Numeral Recognition (1-10)",              conceptId: "S3.1", stage: 3, ageGroup: "5-6", strand: "Number Sense" },
   19: { levelNumber: 19, levelTitle: "Numeral-Quantity Correspondence",         conceptId: "S3.2", stage: 3, ageGroup: "5-6", strand: "Number Sense" },
   20: { levelNumber: 20, levelTitle: "Numeral Comparison (Object-Mediated)",     conceptId: "S3.3", stage: 3, ageGroup: "5-6", strand: "Pre-Number Foundations" },
-  // No exact NCF-FS column-C outcome (PR #517 §7) — NCF-FS asks only for ordering up to 5 objects. Kept, open item.
-  21: { levelNumber: 21, levelTitle: "Seriation with Transitivity",              conceptId: "S3.4", stage: 3, ageGroup: "5-6", strand: "Pre-Number Foundations" },
+  // Re-scoped 2026-09-19 per Pavani's decision on PR #517 §7's open item: NOT a split
+  // from S2.2 (Seriation, 3 objects, no transitivity) -- that split already exists.
+  // S3.4 previously bundled seriation with transitive inference (A>B, B>C => A>C),
+  // which NCF-FS never states in the numeracy strand at any age column, and which
+  // developmental literature places well past 5-6 (~7-9+). Re-scoped to exactly
+  // NCF-FS C-8.4 Table 32 Column C (age 5-6): "arranges up to 5 objects by
+  // size/length/weight in increasing or decreasing order." Transitive inference is
+  // deliberately NOT assigned a stage -- NCF-FS doesn't cover it at all, so placing
+  // it anywhere in the MVP (which stops at Class 3) would be a guess, not a sourced
+  // decision. Also flagged: the S3.4 worksheet item in SPEC_missing_42_levels.md:207
+  // (three sticks, "circle the longest") tests perceptual comparison, not withheld-
+  // comparison transitive inference -- a pre-existing content bug, worth fixing
+  // regardless of this re-scope, now tracked as a follow-up.
+  21: { levelNumber: 21, levelTitle: "Seriation (Up to 5 Objects, by Size/Length/Weight)", conceptId: "S3.4", stage: 3, ageGroup: "5-6", strand: "Pre-Number Foundations" },
   22: { levelNumber: 22, levelTitle: "Flexible Classification",                 conceptId: "S3.5", stage: 3, ageGroup: "5-6", strand: "Pre-Number Foundations" },
   // No exact NCF-FS column-C outcome (PR #517 §7) — matches NIPUN's "arranges by sequence"; definition includes events NCF-FS places at 3-4.
   23: { levelNumber: 23, levelTitle: "Numeral Sequencing",                       conceptId: "S3.6", stage: 3, ageGroup: "5-6", strand: "Number Sense" },

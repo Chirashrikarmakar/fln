@@ -525,10 +525,17 @@ export const LEVEL_SKILL_MAP: LevelSkillMapping[] = [
   makeLevel(20, 'Numeral Comparison (Object-Mediated)', ['SK09'], ['SK08'],
     { prerequisites: ['L19'], relationshipType: 'often_precedes',
     evidence: ['numeral_compare_correct'] }),
-  makeLevel(21, 'Seriation with Transitivity',          ['SK03'], ['SK09'],
+  // Re-scoped 2026-09-19 per Pavani's decision: matches NCF-FS C-8.4 Table 32 Column C
+  // (age 5-6) exactly -- "arranges up to 5 objects by size/length/weight." Previously
+  // bundled transitive inference (A>B, B>C => A>C), which NCF-FS never states in the
+  // numeracy strand and which developmental literature places well past 5-6. See
+  // backend/src/config/curriculumMap.ts's matching comment for the full reasoning;
+  // transitive inference deliberately has no node anywhere in this file -- it's
+  // parked, not assigned a stage on a guess.
+  makeLevel(21, 'Seriation (Up to 5 Objects, by Size/Length/Weight)', ['SK03'], ['SK09'],
     { prerequisites: [{ levelId: 'L9', relationshipType: 'required_for_procedure',
-      rationale: "Piaget's own documented refinement of basic seriation" }],
-    evidence: ['transitive_seriation'] }),
+      rationale: 'Ordering 5 objects extends the same pairwise-comparison skill as ordering 3' }],
+    evidence: ['seriate_5'] }),
   makeLevel(22, 'Flexible Classification',              ['SK02'], ['SK04','SK24'],
     { prerequisites: [{ levelId: 'L10', relationshipType: 'required_for_procedure',
       rationale: 'Flexible re-sorting refines increasing-complexity classification' }],
