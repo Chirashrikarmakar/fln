@@ -30,8 +30,19 @@
 import { getLevelForConcept } from './config/curriculumMap';
 
 /**
- * Group-based prerequisite override, added 2026-09-18 per the team's OR-modular
- * decision: start every node's prerequisites as a single AND group (the flat
+ * "Alternative prerequisite pathways" — group-based prerequisite override,
+ * added 2026-09-18, refined 2026-09-19 against an external design review
+ * covering NCF-FS/NIPUN, DINA/DINO cognitive-diagnosis literature, ALEKS
+ * (Knowledge Space Theory), AND/OR-graph theory, OWL, and MongoDB's own
+ * data-modeling guidance.
+ *
+ * Deliberate naming: this is NOT "AND/OR prerequisites" in the sense of "we
+ * aren't sure if this prerequisite matters" — uncertainty belongs in `status`/
+ * `evidence`, not in choosing OR. An OR group means "there are multiple
+ * legitimate, curriculum-approved ways a learner can arrive at this
+ * prerequisite competency" — a reviewed pedagogical claim, not a hedge.
+ *
+ * Start every node's prerequisites as a single AND group (the flat
  * CONCEPT_PREREQUISITES table below already IS that AND group), and loosen a
  * *specific* node to OR later by adding one entry here — never by restructuring
  * CONCEPT_PREREQUISITES or touching any other node.
@@ -39,62 +50,136 @@ import { getLevelForConcept } from './config/curriculumMap';
  * A node is satisfied when AT LEAST ONE of its groups is fully satisfied (all
  * memberIds in that group are met). Leaving a conceptId out of this map means
  * "one AND group, exactly the members in CONCEPT_PREREQUISITES" — today's
- * existing behaviour, unchanged. `status` records whether a group is still a
- * design hypothesis or has been confirmed by pilot data / teacher sessions
- * (see #466) — it does not affect evaluation, only reporting.
+ * existing behaviour, unchanged.
+ *
+ * FLN prerequisite-graph policy (agreed 2026-09-19, to be confirmed with
+ * Pavani before the first real OR case ships):
+ *   1. Every hard prerequisite is one or more prerequisite groups.
+ *   2. Within an AND group, all members are required.
+ *   3. Multiple groups = alternative prerequisite pathways.
+ *   4. Default is one AND group per node.
+ *   5. OR pathways require curriculum-lead approval + written rationale.
+ *   6. Expert judgment proposes a relationship; student data validates or
+ *      challenges it — never rewrites the graph automatically.
+ *   7. Hard prerequisites (this file) are separate from merely recommended
+ *      order — see `relationshipType` and the ⇢/sequence-only edges this file
+ *      already excludes.
+ *   8. Question->skill mapping (Q-matrix, Lakshya's task) and skill->
+ *      prerequisite mapping (this file, curriculum team) have separate
+ *      ownership — do not conflate them into one collection/table.
+ *   9. Every relationship carries status + evidence (source, not just
+ *      confidence).
+ *   10. Every AND->OR change is logged (see PrerequisiteGraphChange below).
+ *   11. Student mastery/BKT state is a separate layer, never merged into this
+ *       graph.
+ *   12. No automatic AND->OR promotion from student data alone — a human
+ *       (curriculum lead) always approves.
  */
 export type PrerequisiteGroupType = 'AND' | 'OR';
-export type PrerequisiteGroupStatus = 'hypothesis' | 'confirmed';
+export type PrerequisiteGroupStatus = 'PROPOSED' | 'VALIDATED' | 'DEPRECATED';
+
+/** Hard-gates progression vs. merely informs suggested order — policy point 7. */
+export type PrerequisiteRelationshipType = 'HARD_PREREQUISITE' | 'RECOMMENDED' | 'SEQUENCE';
+
+export type EvidenceSourceType = 'NCF_FS' | 'NIPUN' | 'EXPERT' | 'PILOT_DATA' | 'RESEARCH';
+
+export interface PrerequisiteEvidence {
+  sourceType: EvidenceSourceType;
+  reference?: string;
+  notes?: string;
+  /** Present once status graduates to VALIDATED via real student data — policy point 6. */
+  sampleSize?: number;
+}
 
 export interface PrerequisiteGroup {
   groupId: string;
   type: PrerequisiteGroupType;
   memberIds: readonly string[];
-  rationale?: string;
+  relationshipType: PrerequisiteRelationshipType;
   status: PrerequisiteGroupStatus;
+  rationale?: string;
+  evidence?: PrerequisiteEvidence;
+}
+
+/**
+ * Append-only audit trail for AND<->OR (or any group-shape) changes — policy
+ * point 10. Nothing has changed yet (CONCEPT_PREREQUISITE_GROUP_OVERRIDES is
+ * still empty), so this is currently unused; it exists so the *first* real
+ * change has somewhere principled to be recorded, rather than a habit being
+ * invented ad hoc under deadline later. Not wired to a Mongo collection yet —
+ * this is a static-config file, not a live-edited one, so there is nothing to
+ * persist until the graph itself becomes editable at runtime.
+ */
+export interface PrerequisiteGraphChange {
+  conceptId: string;
+  groupId: string;
+  changedAt: string; // ISO date
+  changedBy: string;
+  previous: Pick<PrerequisiteGroup, 'type' | 'memberIds'>;
+  next: Pick<PrerequisiteGroup, 'type' | 'memberIds'>;
+  reason: string;
+  evidence: PrerequisiteEvidence;
+  approvedBy: string;
 }
 
 /**
  * Explicit per-node overrides only. Empty today — no edge has been loosened to
  * OR yet (see #466: "which prerequisites are really OR ... settle through
- * teacher sessions, not on paper"). Add a conceptId here to override its
- * default single-AND-group behaviour.
+ * teacher sessions, not on paper"). Per policy point 5/6, do not populate this
+ * from a guess made while wiring up code: OR requires curriculum-lead approval
+ * and either NCF-FS/NIPUN textual support or real pilot/student-response
+ * evidence (Pavani's 2026-09-18 call: "we will create a feedback loop where we
+ * learn from the student responses and improve the levels") — not expert
+ * judgment alone, and not silently. Add a conceptId here only once that
+ * evidence and sign-off exist.
  */
-// Per Pavani's 2026-09-18 call with Jinal/Lakshya: loosening an edge from AND to
-// OR needs a real feedback loop from student response data ("everything is
-// tentative... we will create a feedback loop where we learn from the student
-// responses and improve the levels") -- not expert judgment alone, and not a
-// guess made while wiring up code. Treat every entry below as needing that
-// evidence trail (captured via `rationale`) before it ships, and route the
-// actual sign-off through Pavani, consistent with how she reviewed every node
-// in PR #517 herself rather than trusting an AI pass unchecked.
 export const CONCEPT_PREREQUISITE_GROUP_OVERRIDES: Readonly<Record<string, readonly PrerequisiteGroup[]>> = {
-  // Example shape for whoever adds the first OR case:
+  // Example shape for whoever adds the first OR case, once Pavani has approved
+  // a concrete educational example (not merely "we aren't sure"):
   // 'S3.25': [
-  //   { groupId: 'g1', type: 'AND', memberIds: ['S3.2'], status: 'hypothesis' },
-  //   { groupId: 'g2', type: 'OR',  memberIds: ['S3.1', 'S3.6'], rationale: '...', status: 'hypothesis' },
+  //   {
+  //     groupId: 'g1', type: 'AND', memberIds: ['S3.2'],
+  //     relationshipType: 'HARD_PREREQUISITE', status: 'PROPOSED',
+  //     evidence: { sourceType: 'NCF_FS', reference: 'C-8.13' },
+  //   },
+  //   {
+  //     groupId: 'g2', type: 'AND', memberIds: ['S3.1', 'S3.6'],
+  //     relationshipType: 'HARD_PREREQUISITE', status: 'PROPOSED',
+  //     rationale: 'Alternative route: ...', evidence: { sourceType: 'EXPERT' },
+  //   },
   // ],
 };
 
 /**
  * Resolved prerequisite groups for a concept: the override if one exists,
  * otherwise the single implicit AND group derived from CONCEPT_PREREQUISITES.
+ * The implicit group is tagged HARD_PREREQUISITE/VALIDATED because it
+ * reproduces exactly today's existing, already-relied-upon behaviour — not a
+ * new provisional claim.
  */
 export function prerequisiteGroups(conceptId: string): readonly PrerequisiteGroup[] {
   const override = CONCEPT_PREREQUISITE_GROUP_OVERRIDES[conceptId];
   if (override) return override;
   const flat = CONCEPT_PREREQUISITES[conceptId];
   if (!flat || flat.length === 0) return [];
-  return [{ groupId: 'g1', type: 'AND', memberIds: flat, status: 'hypothesis' }];
+  return [{
+    groupId: 'g1',
+    type: 'AND',
+    memberIds: flat,
+    relationshipType: 'HARD_PREREQUISITE',
+    status: 'VALIDATED',
+  }];
 }
 
 /**
  * Whether conceptId's prerequisites are satisfied, given the set of concepts
- * already mastered. True when at least one group is fully covered by `mastered`
- * (or when the concept has no prerequisite groups at all — an entry node).
+ * already mastered. True when at least one HARD_PREREQUISITE group is fully
+ * covered by `mastered` (or when the concept has no such groups — an entry
+ * node, or one whose only groups are RECOMMENDED/SEQUENCE — policy point 7:
+ * only hard prerequisites gate progression).
  */
 export function isPrerequisiteSatisfied(conceptId: string, mastered: ReadonlySet<string>): boolean {
-  const groups = prerequisiteGroups(conceptId);
+  const groups = prerequisiteGroups(conceptId).filter(g => g.relationshipType === 'HARD_PREREQUISITE');
   if (groups.length === 0) return true;
   return groups.some(g => g.memberIds.every(id => mastered.has(id)));
 }
