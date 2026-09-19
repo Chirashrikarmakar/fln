@@ -2,7 +2,9 @@
 
 A large-scale, personalized assessment system that helps teachers measure, track, and improve every student's Foundational Literacy and Numeracy (FLN) outcomes — from automatic question paper generation to scanning answer sheets and instant, profile-driven evaluation.
 
-> **Current build scope: Mathematics only, Classes 2–4.** "FLN" names the policy problem this project is built to eventually address in full (see [SRS.md](SRS.md)), but nothing here evaluates literacy today — every level, question, and evaluation path in this repo is numeracy. Don't read the sections below as literacy features that already exist.
+> **Current build scope: Mathematics only.** "FLN" names the policy problem this project is built to eventually address in full (see [SRS.md](SRS.md)), but nothing here evaluates literacy today — every level, question, and evaluation path in this repo is numeracy. Don't read the sections below as literacy features that already exist.
+>
+> **Build order pivoted 2026-09-17 to stage-by-stage, not all-classes-at-once:** Balvatika (the year before Class 1) → Class 1 → Class 2 → Class 3, each stage frozen before the next starts. Class 4/5 are explicitly deferred to Tenali, not built here. Balvatika's 29 curriculum levels and their question-content (`generationIntent`) rows are already authored and seeded in the database, but **nothing in the codebase renders them into an actual worksheet yet** — see [issue #486](https://github.com/vicharanashala/fln/issues/486). Don't assume a level existing in `curriculumMap.ts` means a student can be assessed on it end-to-end.
 
 ---
 
@@ -79,6 +81,8 @@ The platform is built around **personalized, student-specific assessment**, not 
 ## The Level Framework
 
 Every question, worksheet, and diagnostic is pinned to one of **109 curriculum levels** (`backend/src/config/curriculumMap.ts`), each mapped to a stage, age group, and a concept ID (`S1.1`–`S7.18`). The count has moved twice: an older 59-level numbering was replaced by 93, which grew to 109 when the year before Class 1 was finalised against NCF-FS 2022 (PR #517). The migration is still in progress, and the most recently added levels have had the least real-world testing.
+
+**Stage 3 (levels 19–46, concept IDs mostly `S3.*` with a few relocated `S4`/`S5` nodes) is Balvatika** — "the year before Class 1," defined by school-admission-year, not by the child's actual age (NCF and Nipun Bharat both treat the 3/4/5 age split as tentative, so there's no age-specific sub-staging). It's the stage currently being built out: 29 nodes have curriculum entries, skill/subskill mappings, and authored `generationIntent` question content in Mongo (`backend/src/seedBalvatikaQuestionTemplates.ts`, seeded via PR #529), but the content-authoring and pipeline-wiring work were done as deliberately separate passes — see the scope note at the top of this file and issue #486.
 
 Two things worth knowing before you touch level numbers:
 

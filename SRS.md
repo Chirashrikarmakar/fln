@@ -2,7 +2,7 @@
 # FLN Assessment & Personalized Worksheet Platform
 
 **Version:** v0.1
-**Subject Scope:** Mathematics FLN (Foundational Literacy & Numeracy), Classes 2–4
+**Subject Scope:** Mathematics FLN (Foundational Literacy & Numeracy). Target build order is stage-by-stage: **Balvatika (the year before Class 1) → Class 1 → Class 2 → Class 3**, with each stage frozen before the next starts; Class 4/5 are explicitly deferred to Tenali, not built into FLN (pivot decided 2026-09-17, superseding the earlier "Classes 2–4" framing below).
 **Technology Stack:** MERN (MongoDB, Express.js, React.js, Node.js) + Python (AI/Automation services)
 **Document Status:** Draft
 
@@ -70,6 +70,8 @@ Both deployment modes feed the same Student, Worksheet, AnswerSubmission, and Ev
 
 ### 1.4 Scope
 - Mathematics FLN only (no Literacy).
+- **Build order is stage-by-stage, not all-at-once:** Balvatika → Class 1 → Class 2 → Class 3, each stage finalized (levels, worksheet formats, DB schema, evaluation matrix) and proven end-to-end before the next stage starts. Class 4/5 are explicitly out of scope for FLN and deferred to Tenali. The curriculum is sourced from **NCF Foundational Stage (NCF-FS) 2022**, not NIPUN Bharat alone — NIPUN Bharat is a certification pass-mark subset of NCF, so a student can clear every NIPUN Bharat level and still have open NCF gaps flagged as prerequisites for the next stage.
+- **Balvatika has two worksheet types per level, not one**, because NCF explicitly prohibits written testing at this age for some outcomes: a **student worksheet** (written, scanned like other stages) for testable outcomes, and a **teacher observation worksheet** (class-level checklist — rows are observable skills, columns are student names) for outcomes a teacher must watch and record instead. "Question paper" is not used for Balvatika; it is called a "worksheet" throughout.
 - Curriculum stored as Markdown files per level, authored by the core team (not editable via UI). AI/core-team pedagogical decisions take first priority; all role feedback is raised via an in-app ticketing system (general tickets by any role, curriculum tickets by Teachers) and incorporated only after review by the Superadmin team.
 - All Assessment for all students (both newly enrolled and existing).
 - Fixed national assessment calendar: three test cycles per academic year — Baseline (start of year), Mid-year, End-of-year. Baseline covers the complete syllabus of the previous class. Mid-Year covers the previous class syllabus plus topics completed in the current class until the mid-year point. End-Year covers the previous class syllabus plus the complete current class syllabus. The student's FLN level is updated by AI after every assessment. Levels are milestones the child is progressed toward with worksheets, not individual test gates the child must clear one at a time.
