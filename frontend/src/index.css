@@ -91,3 +91,34 @@ input, select, textarea {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(156, 163, 175, 0.5);
 }
+
+/**
+ * Curriculum heat map (landing page) — sequential single-hue ramp, blue.
+ *
+ * Four bands, not a continuous scale: past roughly seven colour classes
+ * adjacent bands stop being distinguishable, and the counts here only run 1-9.
+ * Both ramps are validated against their own surface (monotone lightness,
+ * visible step gaps, light end clears 2:1 on the surface) — the dark ramp is
+ * stepped for the dark surface rather than being an inversion of the light one.
+ * Each band carries its own ink colour so the count printed in the cell keeps
+ * contrast against the fill it sits on.
+ */
+.fln-heatmap {
+  --cell-1: #86b6ef; --ink-1: #0b0b0b;
+  --cell-2: #5598e7; --ink-2: #0b0b0b;
+  --cell-3: #2a78d6; --ink-3: #ffffff;
+  --cell-4: #184f95; --ink-4: #ffffff;
+}
+
+.dark .fln-heatmap {
+  --cell-1: #1c5cab; --ink-1: #ffffff;
+  --cell-2: #2a78d6; --ink-2: #ffffff;
+  --cell-3: #5598e7; --ink-3: #0b0b0b;
+  --cell-4: #9ec5f4; --ink-4: #0b0b0b;
+}
+
+/* 2px surface gap between cells — a gap, not a border drawn around each mark. */
+.fln-heatmap table {
+  border-collapse: separate;
+  border-spacing: 2px;
+}
