@@ -301,9 +301,19 @@ export function registerEvaluationRoutes(app: express.Express) {
           '9. EMPTY / UNANSWERED — No writing at all → null. Smudge or stray mark only → "unclear".',
           '',
           '════════════════════════════════════',
-          'WHAT NOT TO CAPTURE',
+          'PRINTED QUESTION TEXT — capture this too',
           '════════════════════════════════════',
-          '- Any printed text: instructions, question numbers, option labels, example digits, ',
+          'For each row, also capture the printed question text exactly as written on the sheet',
+          '(the question/instruction the student was answering) — this is used ONLY to double-check',
+          'that the row was matched to the right question downstream; it does not replace the',
+          'system\'s own record of the question. Keep it short: the question sentence or prompt itself,',
+          'not surrounding decorative text. If a printed question number precedes it (e.g. "3."), you',
+          'may include it. Do not paraphrase or translate — transcribe the printed text as-is.',
+          '',
+          '════════════════════════════════════',
+          'WHAT NOT TO CAPTURE (besides the question text above)',
+          '════════════════════════════════════',
+          '- Page-level instructions/headers not tied to a specific row, option labels, example digits, ',
           '  decorative borders, school name, page numbers, class/grade labels.',
           '- Printed images or diagrams (reference them only to determine left vs right ',
           '  for a circled answer).',
@@ -316,8 +326,7 @@ export function registerEvaluationRoutes(app: express.Express) {
           '- One key per row: "row_1", "row_2", … "row_N" — continuous across all pages.',
           '',
           'Each row value is either:',
-          '- A string (one answer or comma-separated answers for multi-slot rows)',
-          '- null (row exists but student left it blank)',
+          '- An object: {"question": "<printed question text>", "answer": "<student\'s answer, or null if blank>"}',
           '- An object with an "error" key (row belongs to an unreadable page)',
           '',
           'Example (2-page sheet, page 2 unreadable):',
@@ -329,21 +338,22 @@ export function registerEvaluationRoutes(app: express.Express) {
           '      "page_2": "Unreadable — could not extract answers. Please check scan quality."',
           '    }',
           '  },',
-          '  "row_1": "7, null, 9",',
-          '  "row_2": ">",',
-          '  "row_3": "left",',
-          '  "row_4": "A→3, B→1, C→2",',
-          '  "row_5": "circle, square, circle",',
-          '  "row_6": "heart",',
-          '  "row_7": "unclear",',
-          '  "row_8": null,',
+          '  "row_1": {"question": "Fill in the boxes: 3 + 4 = __, 5 - 2 = __, 8 + 1 = __", "answer": "7, null, 9"},',
+          '  "row_2": {"question": "Compare: 12 __ 9", "answer": ">"},',
+          '  "row_3": {"question": "Circle the larger number.", "answer": "left"},',
+          '  "row_4": {"question": "Match the following.", "answer": "A→3, B→1, C→2"},',
+          '  "row_5": {"question": "Circle the shapes shown.", "answer": "circle, square, circle"},',
+          '  "row_6": {"question": "Draw the shape described.", "answer": "heart"},',
+          '  "row_7": {"question": "What is 9 + 6?", "answer": "unclear"},',
+          '  "row_8": {"question": "What is 15 - 8?", "answer": null},',
           '  "row_9": { "error": "Page unreadable — could not extract answer. Please check scan quality." },',
           '  "row_10": { "error": "Page unreadable — could not extract answer. Please check scan quality." }',
           '}',
           '',
           'Rules:',
           '- Output ONLY the JSON object. No prose, no markdown fences, no commentary.',
-          '- Preserve exactly what the student wrote. Do not compute, correct, or normalise.',
+          '- Preserve exactly what the student wrote. Do not compute, correct, or normalise the answer.',
+          '- Transcribe the question text as printed — do not paraphrase, translate, or solve it.',
           '- For LEFT/RIGHT answers, base the decision purely on horizontal position on that page.',
           '- If you cannot confidently read a character, output "unclear" — do not guess.',
           '- Never invent rows that do not exist on the physical sheet.',
@@ -388,14 +398,18 @@ export function registerEvaluationRoutes(app: express.Express) {
         const rawText = (ollamaJson && ollamaJson.message && ollamaJson.message.content)
           ? String(ollamaJson.message.content)
           : '';
-        // Parse the model's row_N schema (new prompt) — keep the existing
-                // flat `answers[]` shape stable for downstream consumers (the
-                // IcrTwoStageScan → IcrScanner pipeline reads answers[] by index).
-                // We derive flatAnswers from sorted row_N keys so row 1, row 2,
-                // ... row N come out in order, and skip rows whose value is an
-                // { error: ... } object (the model emits those for unreadable
-                // pages).
+        // Parse the model's row_N schema. Keep the existing flat `answers[]`
+                // shape stable for downstream consumers (the IcrTwoStageScan ->
+                // IcrScanner pipeline reads answers[] by index), and additionally
+                // derive a parallel `extractedQuestions[]` array (same index
+                // alignment) — the printed question text the model read next to
+                // each answer. This is NOT used to replace the system's own
+                // known question for that row; it exists purely so a caller can
+                // flag a mismatch if the model's row segmentation drifted (e.g.
+                // it skipped or merged a row), catching a misaligned answer
+                // before it reaches scoring.
                 let flatAnswers: string[] | null = null;
+                let extractedQuestions: string[] | null = null;
                 let parseError: string | null = null;
                 let pageErrors: Record<string, string> | null = null;
                 let meta: any = null;
@@ -417,16 +431,36 @@ export function registerEvaluationRoutes(app: express.Express) {
                         .filter(k => /^row_\d+$/.test(k))
                         .sort((a, b) => parseInt(a.slice(4), 10) - parseInt(b.slice(4), 10));
                       if (rowKeys.length > 0) {
-                        flatAnswers = rowKeys.map(k => {
+                        flatAnswers = [];
+                        extractedQuestions = [];
+                        rowKeys.forEach(k => {
                           const v = parsed[k];
-                          if (v === null || v === undefined) return '';
+                          if (v === null || v === undefined) {
+                            flatAnswers!.push('');
+                            extractedQuestions!.push('');
+                            return;
+                          }
                           if (typeof v === 'object' && v && 'error' in v) {
                             // Per-page error — emit a sentinel token so the verify
                             // UI can show it. Use the literal "unclear" so the
                             // existing post-processing handles it consistently.
-                            return 'unclear';
+                            flatAnswers!.push('unclear');
+                            extractedQuestions!.push('');
+                            return;
                           }
-                          return String(v);
+                          // New schema: {"question": "...", "answer": "..."}.
+                          // Fall back to treating the whole value as the answer
+                          // (old schema / model didn't follow the new format)
+                          // so a prompt regression degrades gracefully instead
+                          // of losing the row entirely.
+                          if (typeof v === 'object' && v && 'answer' in v) {
+                            const ans = v.answer;
+                            flatAnswers!.push(ans === null || ans === undefined ? '' : String(ans));
+                            extractedQuestions!.push(typeof v.question === 'string' ? v.question : '');
+                          } else {
+                            flatAnswers!.push(String(v));
+                            extractedQuestions!.push('');
+                          }
                         });
                       } else {
                         parseError = 'model output did not contain any row_N keys';
@@ -455,6 +489,11 @@ export function registerEvaluationRoutes(app: express.Express) {
                     mimeUsed,
                     // The cleaned, flat answer list — exactly what the verify UI consumes.
                     answers: flatAnswers || [],
+                    // Parallel array (same index alignment as `answers`) of the
+                    // printed question text the model read next to each answer.
+                    // For validation/mismatch-flagging against the system's own
+                    // known question for that row — never used to replace it.
+                    extractedQuestions: extractedQuestions || [],
                     // Keep raw text + tokens for the OCR analysis preview pane.
                     extractedText: rawText,
                     extractedTokens: tokens,
