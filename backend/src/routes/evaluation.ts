@@ -761,7 +761,7 @@ export function registerEvaluationRoutes(app: express.Express) {
     const user = getAuthUser(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const { fileDataUrl, imageDataUrl, fileBase64, provider, pagesPerStudent } = req.body || {};
+    const { fileDataUrl, imageDataUrl, fileBase64, provider, pagesPerStudent, expectedCount } = req.body || {};
     const singleDataUrl = fileDataUrl || imageDataUrl || fileBase64;
     if (!singleDataUrl || typeof singleDataUrl !== 'string') {
       return res.status(400).json({ error: 'fileDataUrl / imageDataUrl / fileBase64 is required (data URL).' });
@@ -777,6 +777,19 @@ export function registerEvaluationRoutes(app: express.Express) {
     const pps = Number.isFinite(pagesPerStudent) && pagesPerStudent >= 1
       ? Math.min(Math.floor(pagesPerStudent), 20) // hard cap to avoid accidental 1000
       : 2;
+
+    // Optional: how many questions ONE student's paper has, applied uniformly
+    // to every chunk in this batch. A bulk scan is normally one class/level,
+    // so every student in it has the same-length paper — same assumption the
+    // single-scan flow's expectedCount already makes for one student. Without
+    // this, the model has no row-count guardrail on the bulk path and can
+    // over-segment (e.g. split a multi-part question into multiple rows),
+    // producing more rows than the student's real answer key has (#549-adjacent
+    // bug: the bulk endpoint never wired up the same guard the single-scan
+    // path has had since #234/PR #314).
+    const expectedCountPerStudent = (typeof expectedCount === 'number' && expectedCount > 0)
+      ? Math.floor(expectedCount)
+      : undefined;
 
     const apiKey = await getCloudKey(provider);
     if (!apiKey) {
@@ -859,7 +872,7 @@ export function registerEvaluationRoutes(app: express.Express) {
         // Reuse the existing single-image helper — it already handles
         // data:application/pdf → rasterize → Ollama → parse JSON for the
         // Ollama branch. No logic duplication.
-        r = await runCloudOcrOnImage(chunkDataUrl, provider, apiKey);
+        r = await runCloudOcrOnImage(chunkDataUrl, provider, apiKey, expectedCountPerStudent);
       } catch (e: any) {
         results.push({
           studentIndex: i,
