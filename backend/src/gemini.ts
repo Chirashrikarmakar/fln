@@ -453,7 +453,7 @@ Provide a clean narrative feedback summary.`;
             recommendedLevel: { type: Type.INTEGER, description: "Level from 1 to 108 based on weakest-level mapping" },
             narrative: { type: Type.STRING, description: "Warm and encouraging narrative explaining how the student did and what they need to work on." }
           },
-          required: ["score", "recommendedLevel", "narrative"]
+          required: ["score", "narrative"]
         }
       }
     });
@@ -614,16 +614,9 @@ export async function evaluateAIWorksheet(
 ): Promise<{
   score: number;
   total: number;
-  conceptMastery: {
-    [topic: string]: 'Strong' | 'Needs Practice' | 'Satisfactory';
-  };
   narrative: string;
-  evaluatedQuestions: {
-    id: string;
-    isCorrect: boolean;
-    topic: string;
-  }[];
-}> {
+}>
+{
   try {
     const prompt = `Student: ${studentName} (Current Level: ${level})
 
@@ -636,21 +629,19 @@ Evaluate the student's submission.
 For every question:
 - Identify the question ID.
 - Determine whether the submitted answer is correct.
-- Evaluate the student's understanding of the relevant concept.
-- Use the question topic when determining concept mastery.
+-Calculate the total number of correctly answered questions.
 - Return exactly one evaluated result for each question.
 
 Do NOT calculate the student's FLN level.
 Do NOT recommend a next FLN level.
 Do NOT apply any level progression thresholds.
 Do NOT calculate advancement or remediation levels.
+Do NOT determine concept mastery.
 
 The application will calculate the score and level progression separately using deterministic business rules.
 
 Provide:
-1. An evaluatedQuestions array containing the question ID, correctness, and topic for every question.
-2. Concept mastery for each topic.
-3. A concise narrative describing strengths and learning gaps.`;
+Calculate the total number of correctly answered questions.;
 
     const response = await generateContentWithRetry({
       model: DEFAULT_GEMINI_MODEL,
@@ -691,12 +682,6 @@ Provide:
               }
             },
 
-            conceptMastery: {
-              type: Type.OBJECT,
-              description:
-                'Mapping of topic name to Strong, Satisfactory, or Needs Practice.'
-            },
-
             narrative: {
               type: Type.STRING,
               description:
@@ -706,7 +691,6 @@ Provide:
 
           required: [
             'evaluatedQuestions',
-            'conceptMastery',
             'narrative'
           ]
         }
@@ -741,7 +725,6 @@ Provide:
       return {
         score,
         total: questions.length,
-        conceptMastery: parsed.conceptMastery ?? {},
         narrative: parsed.narrative,
         evaluatedQuestions
       };
@@ -762,10 +745,6 @@ Provide:
     isCorrect: boolean;
     topic: string;
   }[] = [];
-
-  const conceptMastery: {
-    [topic: string]: 'Strong' | 'Needs Practice' | 'Satisfactory';
-  } = {};
 
   questions.forEach(q => {
     const submitted = (
@@ -810,7 +789,6 @@ Provide:
   return {
     score,
     total: questions.length,
-    conceptMastery,
     narrative:
       `Determined deterministically: ${studentName} successfully completed ` +
       `${score} out of ${questions.length} questions ` +
