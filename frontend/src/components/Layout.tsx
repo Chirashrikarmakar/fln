@@ -149,6 +149,12 @@ export const Layout: React.FC<LayoutProps> = ({
         });
         list.push({ name: 'Worksheets', view: 'worksheets', icon: ClipboardList });
         list.push({ name: 'Misconceptions', view: 'misconceptions', icon: Fingerprint });
+        // Pedagogical & Process Feedback — moved out of the TeacherDashboard
+        // body into the LHS sidebar so the ticket form doesn't crowd the
+        // student list / diagnostic cards. The `activePanel === 'tickets'`
+        // route in App.tsx renders the same <TicketSubmission> component
+        // that used to live inline here.
+        list.push({ name: 'Feedback', view: 'tickets', icon: HelpCircle });
         break;
 
       case UserRole.VOLUNTEER:
