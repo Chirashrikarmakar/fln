@@ -282,7 +282,18 @@ export function questionBankId(level: number | string, section: string, question
 // exactly one naming scheme across the whole app.
 export const CYCLE_NAMES = ['Baseline', 'Mid-year', 'End-of-year'] as const;
 export type CycleName = typeof CYCLE_NAMES[number];
-
+export interface WorksheetGenerationWindow {
+  id: string;
+  classId: string;
+  cycle: CycleName;
+  schoolId: string;
+  start: string;
+  teacherPriorityEnd: string;
+  end: string;
+  generatedByRole: UserRole | null;
+  generatedByEmail: string | null;
+  closed: boolean;
+}
 export interface Worksheet {
   id: string; // Exam ID
   classId: string;
@@ -299,12 +310,21 @@ export interface Worksheet {
   // the number with a matching EvaluationReport.worksheetId). Optional so
   // older/other worksheet-creation paths that don't set it still validate.
   studentIds?: string[];
-  locks: {
+    locks: {
     locked: boolean;
     lockedByRole: UserRole | null;
     lockedByEmail: string | null;
     timestamp: string | null;
   };
+
+  generationWindow?: {
+    start: string;
+    teacherPriorityEnd: string;
+    end: string;
+    generatedByRole: UserRole | null;
+    generatedByEmail: string | null;
+  };
+
   timing: {
     examDate: string; // e.g. "2026-07-06"
     printWindowStart: string; // ISO String
@@ -980,6 +1000,7 @@ interface DatabaseSchema {
   questionOptions: QuestionOption[];
   curriculumLevels: CurriculumLevel[];
   studentCycleLocks: StudentCycleLock[];
+  generationWindows: WorksheetGenerationWindow[];
 }
 
 const COLLECTION_NAMES: Record<keyof DatabaseSchema, string> = {
@@ -1009,6 +1030,7 @@ const COLLECTION_NAMES: Record<keyof DatabaseSchema, string> = {
   questionOptions: 'questionOptions',
   curriculumLevels: 'curriculumLevels',
   studentCycleLocks: 'studentCycleLocks',
+  generationWindows: 'generationWindows',
 };
 
 /**
@@ -1648,6 +1670,10 @@ export class DBStore {
     if (this.mongoDb) return await this.mongoDb.collection<StudentCycleLock>('studentCycleLocks').find({}).toArray();
     return this.data?.studentCycleLocks || [];
   }
+    async getGenerationWindows() {
+    if (this.mongoDb) return await this.mongoDb.collection<WorksheetGenerationWindow>('generationWindows').find({}).toArray();
+    return this.data?.generationWindows || [];
+  }
   async getTestHistory(teacherId?: string) {
     if (this.mongoDb) {
       const filter = teacherId ? { teacherId } : {};
@@ -2188,7 +2214,33 @@ export class DBStore {
     if (this.data) this.data.studentCycleLocks.push(lock);
     return lock;
   }
+  async addGenerationWindow(window: WorksheetGenerationWindow) {
+    if (this.mongoDb) await this.mongoDb.collection('generationWindows').insertOne(window);
+    if (this.data) this.data.generationWindows.push(window);
+    return window;
+  }
+  async updateGenerationWindow(
+    id: string,
+    updates: Partial<WorksheetGenerationWindow>
+  ) {
+    if (this.mongoDb) {
+      await this.mongoDb.collection<WorksheetGenerationWindow>('generationWindows').updateOne(
+        { id },
+        { $set: updates }
+      );
+    }
 
+    if (this.data) {
+      const index = this.data.generationWindows.findIndex(window => window.id === id);
+
+      if (index !== -1) {
+        this.data.generationWindows[index] = {
+          ...this.data.generationWindows[index],
+          ...updates
+        };
+      }
+    }
+  }
   async addTestHistoryEntry(entry: TestHistoryEntry) {
     if (this.mongoDb) {
       await this.mongoDb.collection('testHistory').insertOne(entry);
@@ -4748,7 +4800,8 @@ export class DBStore {
       // Populated by `npm run seed:levels`, not by the demo seed — the
       // curriculum is real data with one source, not fixture content.
       curriculumLevels: [],
-      studentCycleLocks: []
+      studentCycleLocks: [],
+      generationWindows: []
     };
   }
 }
