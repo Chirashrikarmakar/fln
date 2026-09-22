@@ -12,6 +12,10 @@ import { Table, Column } from '../Table';
 import { LevelBadge } from '../RoleDashboards';
 
 import { ClassSummaryBar } from './ClassSummaryBar';
+import { DashboardSkeleton } from '../ui/DashboardSkeleton';
+import { RosterSkeleton } from '../ui/RosterSkeleton';
+import { EmptyStateCard } from '../ui/EmptyStateCard';
+import { UsersRound } from 'lucide-react';
 
 
 interface TeacherDashboardProps extends DashboardProps {
@@ -71,6 +75,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, token,
   };
 
   const fetchTeacherData = async () => {
+    setStudentsLoading(true);
     try {
       const stdRes = await apiFetch('/api/students?all=1', { headers: { 'Authorization': `Bearer ${token}` } });
       const stdData = await stdRes.json();
@@ -116,6 +121,15 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, token,
         onPlaced={() => fetchTeacherData()}
         onBack={() => setBaselineStudent(null)}
       />
+    );
+  }
+
+  if (studentsLoading) {
+    return (
+      <div className="space-y-6" id="teacher-dashboard">
+        <DashboardSkeleton metricCount={3} />
+        <RosterSkeleton columns={5} />
+      </div>
     );
   }
 
@@ -275,7 +289,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, token,
           Interactive) remain because they are roster interactions, not
           operational tools. */}
 
-      {classStudents.length > 0 && (
+      {classStudents.length > 0 ? (
         <div className="space-y-6">
           <div className="bg-white dark:bg-slate-900 border border-zinc-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
             <div className="p-4 border-b border-zinc-150 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-800/50">
@@ -356,6 +370,17 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, token,
             </div>
           </div>
         </div>
+      ) : (
+        <EmptyStateCard
+          illustration={<UsersRound className="h-6 w-6" />}
+          title="No students in this classroom"
+          description="This class does not have any registered students yet. Choose another class or return to the full school roster."
+          actions={showAllStudents ? [] : [{
+            label: 'View all students',
+            onClick: () => { setShowAllStudents(true); setActiveClass(null); },
+            variant: 'secondary',
+          }]}
+        />
       )}
       <SkillGraphPanel open={showSkillGraph} onClose={() => setShowSkillGraph(false)} />
     </div>
