@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
-import { dbStore, UserRole, Student, Question, Worksheet, LevelWorksheet, WorksheetGenerationWindow } from '../db';
+import { dbStore, UserRole, Student, Question, Worksheet, LevelWorksheet, WorksheetGenerationWindow, CYCLE_NAMES } from '../db';
 import { getAuthUser } from '../auth';
 import { generateQuestionsForLevel } from '../levelGenerator';
 import * as levelsBackendClient from '../levelsBackendClient';
@@ -162,18 +162,33 @@ export function registerWorksheetRoutes(app: express.Express) {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     const { classId, cycle } = req.body;
+
+    const validCycles = CYCLE_NAMES;
+
     if (!classId || !cycle) {
-      return res.status(400).json({ error: 'Class ID and assessment cycle are required.' });
+      return res.status(400).json({
+        error: 'Class ID and assessment cycle are required.'
+      });
+    }
+
+    if (!validCycles.includes(cycle)) {
+      return res.status(400).json({
+        error: 'Invalid assessment cycle.'
+      });
     }
 
     const classes = await dbStore.getClasses();
     const classObj = classes.find(c => c.id === classId);
     if (!classObj) return res.status(404).json({ error: 'Class not found.' });
 
-    if (user.role === UserRole.TEACHER || user.role === UserRole.SCHOOL) {
-      if (user.schoolId !== classObj.schoolId) {
-        return res.status(403).json({ error: 'Access denied.' });
-      }
+    if (user.role !== UserRole.TEACHER && user.role !== UserRole.SCHOOL) {
+      return res.status(403).json({
+        error: 'Only teachers or school users can start a worksheet generation window.'
+      });
+    }
+
+    if (user.schoolId !== classObj.schoolId) {
+      return res.status(403).json({ error: 'Access denied.' });
     }
 
     const existingWindows = await dbStore.getGenerationWindows();
@@ -181,7 +196,11 @@ export function registerWorksheetRoutes(app: express.Express) {
       window => window.classId === classId && window.cycle === cycle
     );
 
-    if (existingWindow) {
+    if (
+      existingWindow &&
+      !existingWindow.closed &&
+      new Date(existingWindow.end) > new Date()
+    ) {
       return res.json(existingWindow);
     }
 
@@ -201,7 +220,6 @@ export function registerWorksheetRoutes(app: express.Express) {
       generatedByEmail: null,
       closed: false
     };
-
     await dbStore.addGenerationWindow(generationWindow);
 
     return res.status(201).json(generationWindow);
@@ -417,7 +435,6 @@ export function registerWorksheetRoutes(app: express.Express) {
         submittingTeachers: []
       },
     };
-// Issue #182:
     
 
     await dbStore.addWorksheet(newWorksheet);
