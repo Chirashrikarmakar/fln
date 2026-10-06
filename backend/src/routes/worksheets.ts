@@ -8,7 +8,7 @@ import { generateQuestionsForLevel } from '../levelGenerator';
 import * as levelsBackendClient from '../levelsBackendClient';
 import { ROOT_DIR } from '../config';
 import { recordStudentCycleLock } from '../paperLock';
-
+import { getGenerationWindowStatus } from '../generationWindowRules';
 /**
  * Shared pipeline: build a roster -> Levels_backend /api/generate-batch ->
  * poll /api/batch-status -> /api/download-batch (zip) -> unpack
@@ -192,9 +192,14 @@ export function registerWorksheetRoutes(app: express.Express) {
     }
 
     const existingWindows = await dbStore.getGenerationWindows();
-    const existingWindow = existingWindows.find(
-      window => window.classId === classId && window.cycle === cycle
-    );
+    const existingWindow = existingWindows
+      .filter(
+        window => window.classId === classId && window.cycle === cycle
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.start).getTime() - new Date(a.start).getTime()
+      )[0];
 
     if (
       existingWindow &&
@@ -251,9 +256,14 @@ export function registerWorksheetRoutes(app: express.Express) {
 
     const generationWindows = await dbStore.getGenerationWindows();
 
-    const generationWindow = generationWindows.find(
-      window => window.classId === classId && window.cycle === cycle
-    );
+    const generationWindow = generationWindows
+      .filter(
+        window => window.classId === classId && window.cycle === cycle
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.start).getTime() - new Date(a.start).getTime()
+    )[0];
 
     if (!generationWindow) {
       return res.status(404).json({
@@ -280,10 +290,15 @@ export function registerWorksheetRoutes(app: express.Express) {
     const schools = await dbStore.getSchools();
     const school = schools.find(s => s.id === classObj.schoolId);
     if (!school) return res.status(404).json({ error: 'School not found.' });
-        const generationWindows = await dbStore.getGenerationWindows();
-    const generationWindow = generationWindows.find(
-      window => window.classId === classId && window.cycle === cycle
-    );
+            const generationWindows = await dbStore.getGenerationWindows();
+    const generationWindow = generationWindows
+      .filter(
+        window => window.classId === classId && window.cycle === cycle
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.start).getTime() - new Date(a.start).getTime()
+      )[0];
 
     if (!generationWindow) {
       return res.status(409).json({
@@ -293,9 +308,17 @@ export function registerWorksheetRoutes(app: express.Express) {
 
     const currentTime = new Date();
 
-    if (generationWindow.closed || currentTime >= new Date(generationWindow.end)) {
+    const windowStatus = getGenerationWindowStatus(
+      generationWindow,
+      user.role,
+      currentTime
+    );
+
+    if (windowStatus === 'expired') {
       if (!generationWindow.closed) {
-        await dbStore.updateGenerationWindow(generationWindow.id, { closed: true });
+        await dbStore.updateGenerationWindow(generationWindow.id, {
+          closed: true
+        });
       }
 
       return res.status(410).json({
@@ -303,12 +326,15 @@ export function registerWorksheetRoutes(app: express.Express) {
       });
     }
 
-    if (
-      user.role === UserRole.TEACHER &&
-      currentTime >= new Date(generationWindow.teacherPriorityEnd)
-    ) {
+    if (windowStatus === 'teacher-priority-ended') {
       return res.status(403).json({
         error: 'Teacher priority period has ended. School can now generate the worksheet.'
+      });
+    }
+
+    if (windowStatus === 'school-priority-not-started') {
+      return res.status(403).json({
+        error: 'Teacher priority period is still active.'
       });
     }
 
@@ -438,10 +464,10 @@ export function registerWorksheetRoutes(app: express.Express) {
     
 
     await dbStore.addWorksheet(newWorksheet);
-        await dbStore.updateGenerationWindow(generationWindow.id, {
+
+    await dbStore.updateGenerationWindow(generationWindow.id, {
       generatedByRole: user.role,
-      generatedByEmail: user.email,
-      closed: true
+      generatedByEmail: user.email
     });
     await dbStore.addLog({
       id: 'log_' + Date.now(),

@@ -14,7 +14,6 @@ interface WorksheetWorkflowProps {
 }
 
 export const WorksheetWorkflow: React.FC<WorksheetWorkflowProps> = ({ classGroup, students, token, userRole, onBack }) => {
-  const isTeacher = userRole === 'teacher';
   const isSchool = userRole === 'school';
   const [worksheet, setWorksheet] = useState<Worksheet | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string>('');
@@ -25,26 +24,39 @@ export const WorksheetWorkflow: React.FC<WorksheetWorkflowProps> = ({ classGroup
   start: string;
   teacherPriorityEnd: string;
   end: string;
+  cycle: 'Baseline' | 'Mid-year' | 'End-of-year';
   generatedByRole: string | null;
   generatedByEmail: string | null;
 } | null>(null);
 
   const [generationTimeLeft, setGenerationTimeLeft] = useState<number | null>(null);
-    useEffect(() => {
+  useEffect(() => {
   const fetchGenerationWindow = async () => {
     try {
-      const res = await apiFetch(
-        `/api/worksheets/generation-window?classId=${classGroup.id}&cycle=Mid-year`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
+      const cycles: Array<'Baseline' | 'Mid-year' | 'End-of-year'> = [
+        'Baseline',
+        'Mid-year',
+        'End-of-year'
+      ];
+
+      for (const cycle of cycles) {
+        const res = await apiFetch(
+          `/api/worksheets/generation-window?classId=${classGroup.id}&cycle=${cycle}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+
+          if (new Date(data.end).getTime() > Date.now()) {
+            setGenerationWindow(data);
+            break;
           }
         }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        setGenerationWindow(data);
       }
     } catch (_) {
       // No active generation window to restore.
@@ -105,38 +117,6 @@ export const WorksheetWorkflow: React.FC<WorksheetWorkflowProps> = ({ classGroup
       }
     } catch (_) {}
   };
-  const startGenerationWindow = async (
-  cycle: 'Baseline' | 'Mid-year' | 'End-of-year'
-) => {
-  setLoading(true);
-  setError('');
-  setSuccess('');
-
-  try {
-    const res = await apiFetch('/api/worksheets/generation-window/start', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ classId: classGroup.id, cycle })
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error || 'Failed to start worksheet generation window.');
-      return;
-    }
-
-    setGenerationWindow(data);
-    setSuccess('60-minute worksheet generation window started.');
-  } catch (err) {
-    setError('Network error starting worksheet generation window.');
-  } finally {
-    setLoading(false);
-  }
-};
   const generateWorksheets = async (
   cycle: 'Baseline' | 'Mid-year' | 'End-of-year'
 ) => {
@@ -145,6 +125,27 @@ export const WorksheetWorkflow: React.FC<WorksheetWorkflowProps> = ({ classGroup
   setSuccess('');
 
   try {
+    const windowRes = await apiFetch(
+      '/api/worksheets/generation-window/start',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ classId: classGroup.id, cycle })
+      }
+    );
+
+    if (!windowRes.ok) {
+      const windowData = await windowRes.json();
+      setError(windowData.error || 'Failed to start generation window.');
+      return;
+    }
+
+    const windowData = await windowRes.json();
+    setGenerationWindow(windowData);
+
     const res = await apiFetch('/api/worksheets/generate', {
       method: 'POST',
       headers: {
@@ -158,10 +159,15 @@ export const WorksheetWorkflow: React.FC<WorksheetWorkflowProps> = ({ classGroup
 
     if (res.ok) {
       setWorksheet(data);
-      setGenerationWindow(data.generationWindow || null);
-      setSuccess('Class worksheets generated successfully using Gemini AI personalization!');
+      setGenerationWindow(data.generationWindow || windowData);
+      setSuccess(
+        'Class worksheets generated successfully using Gemini AI personalization!'
+      );
     } else {
-      setError(data.error || 'Failed to generate worksheets due to active generation locks.');
+      setError(
+        data.error ||
+          'Failed to generate worksheets due to active generation locks.'
+      );
     }
   } catch (err) {
     setError('Network error generating worksheets.');
@@ -288,22 +294,18 @@ export const WorksheetWorkflow: React.FC<WorksheetWorkflowProps> = ({ classGroup
           <p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed max-w-md mx-auto">
             Choose an assessment cycle to generate distinct, AI-personalized papers for each child based on their current FLN mathematical level milestones.
           </p>
-          {generationWindow && generationTimeLeft !== null && (
-          <div className="text-center text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Worksheet generation window:{" "}
-          {Math.floor(generationTimeLeft / 60000)}:
-          {String(Math.floor((generationTimeLeft % 60000) / 1000)).padStart(2, '0')} remaining
-          </div>
-      )}
+                    {generationWindow && generationTimeLeft !== null && (
+            <div className="text-center text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              {generationWindow.cycle} worksheet generation window:{' '}
+              {Math.floor(generationTimeLeft / 60000)}:
+              {String(
+                Math.floor((generationTimeLeft % 60000) / 1000)
+              ).padStart(2, '0')}{' '}
+              remaining
+            </div>
+          )}
           <div className="flex flex-col items-center gap-3 pt-4">
             <div className="flex justify-center gap-3 flex-wrap">
-  <button
-    onClick={() => startGenerationWindow('Baseline')}
-    disabled={loading}
-    className="bg-zinc-600 hover:bg-zinc-700 text-white font-medium text-sm py-2.5 px-5 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
-  >
-    Start Baseline Generation Window
-  </button>
 
   <button
     onClick={() => generateWorksheets('Baseline')}
@@ -311,14 +313,6 @@ export const WorksheetWorkflow: React.FC<WorksheetWorkflowProps> = ({ classGroup
     className="bg-zinc-900 hover:bg-zinc-800 text-white font-medium text-sm py-2.5 px-5 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
   >
     Generate Baseline Worksheets
-  </button>
-
-  <button
-    onClick={() => startGenerationWindow('Mid-year')}
-    disabled={loading}
-    className="bg-zinc-600 hover:bg-zinc-700 text-white font-medium text-sm py-2.5 px-5 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
-  >
-    Start Mid-Year Generation Window
   </button>
 
   <button
@@ -333,14 +327,6 @@ export const WorksheetWorkflow: React.FC<WorksheetWorkflowProps> = ({ classGroup
     className="bg-zinc-900 hover:bg-zinc-800 text-white font-medium text-sm py-2.5 px-5 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
   >
     Generate Mid-Year Worksheets
-  </button>
-
-  <button
-    onClick={() => startGenerationWindow('End-of-year')}
-    disabled={loading}
-    className="bg-zinc-600 hover:bg-zinc-700 text-white font-medium text-sm py-2.5 px-5 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
-  >
-    Start End-of-Year Generation Window
   </button>
 
   <button
